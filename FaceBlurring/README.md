@@ -3,7 +3,7 @@
 ### Generate face blurring dataset
 ---
 # Process to create and save face blur images
-conda virtual environment setup
+conda virtual environment setup(recommend python=3.7+)
 ```bash
 conda create -n "environment name" python=3.8
 conda activate "environment name"
