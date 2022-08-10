@@ -13,6 +13,7 @@ conda activate "environment name"
 ### Install insightface(ScRFD)
 ```bash
 pip install -U Cython cmake numpy
+pip install onnxruntime-gpu
 pip install -U insightface
 ```
 ### Install for image processing
