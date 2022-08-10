@@ -3,7 +3,30 @@
 ### Generate face blurring dataset
 ---
 # Process to create and save face blur images
-Basically you need pytorch, numpy, opencv-python, matplotlib, ... libraries. I do not detailed introduction for installing.
+conda virtual environment setup
+```bash
+conda create -n "environment name" python=3.8
+conda activate "environment name"
+```
+## requirements..
+---
+### Install insightface(ScRFD)
+```bash
+pip install -U Cython cmake numpy
+pip install -U insightface
+```
+### Install for image processing
+```bash
+pip install numpy
+pip install scipy
+pip install opencv-python
+conda install scikit-image
+pip install tqdm
+```
+
+### Install pytorch in your computer(follow CUDA spec)
+https://pytorch.org/get-started/locally/
+
 ## 1. Cloning repository and get ready to generate samples
 
 ```bash
