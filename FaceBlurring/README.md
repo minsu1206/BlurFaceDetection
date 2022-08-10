@@ -91,3 +91,17 @@ And do not forget to update 'text.txt' before run this command.
 ---
 ## 4. Embedding test with dataset
 Open "Tutorial.jpynb" with google colab.
+### Results with deepface(Facenet).  
+| PSNR | SSIM | Blur Degree |
+|------------|-------------|-------------|
+| <img src="/embedding/results_facenet_psnr.png" width="250"> | <img src="/embedding/results_facenet_ssim.png" width="250"> |<img src="/embedding/results_facenet_degree.png" width="250"> |  
+
+### Results with deepface(VGG-Face).  
+| PSNR | SSIM | Blur Degree |
+|------------|-------------|-------------|
+| <img src="/embedding/results_deepface_psnr.png" width="250"> | <img src="/embedding/results_deepface_ssim.png" width="250"> |<img src="/embedding/results_deepface_degree.png" width="250"> |
+
+### Results with deepface(Arc-Face).  
+| PSNR | SSIM | Blur Degree |
+|------------|-------------|-------------|
+| <img src="/embedding/results_deepface_psnr.png" width="250"> | <img src="/embedding/results_deepface_ssim.png" width="250"> |<img src="/embedding/results_deepface_degree.png" width="250"> |
