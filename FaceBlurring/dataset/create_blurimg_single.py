@@ -1,8 +1,5 @@
 import argparse
 from tqdm import tqdm
-import os
-import numpy as np
-import cv2
 from blur import *
 from utils import *
 

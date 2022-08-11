@@ -26,7 +26,7 @@ class CreateBlurImg:
 		if self.blur_method == 'defocus' or self.blur_method is None:
 			# Get motion blur hyperparameters
 			if motionblur_hyperparameters is None:
-				self.parameters = {'mean':50, 'var':20, 'dmin':0, 'dmax':120}
+				self.parameters = {'mean':50, 'var':20, 'dmin':0, 'dmax':100}
 			else:
 				self.parameters = motionblur_hyperparameters
 
@@ -127,7 +127,6 @@ class CreateBlurImg:
 					raise ValueError("You cannot save label without saving blur samples")
 
 		elif self.blur_method == 'deblurGAN':
-			# SCRFD 적용하는 코드 작성해야함(근데 사실 이거 코드 안쓸거같음)
 			for image_file in tqdm(self.sample_paths):
 				self.parameters['expl'] = np.random.choice([0.003, 0.001,
 										                    0.0007, 0.0005,

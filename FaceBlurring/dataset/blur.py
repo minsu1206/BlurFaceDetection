@@ -12,12 +12,10 @@ def blurring(img, param):
     '''
     mean, var, dmin, dmax = param['mean'], param['var'], param['dmin'], param['dmax']
     # Create random degree and random angle with parameters
-    '''
-        random_degree = dmax + 1
-        while random_degree < dmin or random_degree > dmax:
+    random_degree = dmax + 1
+    while random_degree < dmin or random_degree > dmax:
         random_degree = int(random.normalvariate(mean, var))
-    '''
-    random_degree = random.randint(dmin, dmax)
+    #random_degree = random.randint(dmin, dmax)
     random_angle = random.randint(-180, 180)
 
     if random_degree == 0:

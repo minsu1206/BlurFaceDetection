@@ -98,10 +98,7 @@ class FaceMobileNetV2(nn.Module):
         self.features = nn.Sequential(*self.features)
 
         # building regressor
-        self.regressor = nn.Sequential(nn.Linear(self.last_channel, 100),
-                                       nn.ReLU6(inplace=True),
-                                       nn.Dropout(0.5),
-                                       nn.Linear(100, 1))
+        self.regressor = nn.Linear(self.last_channel, 1)
         self._initialize_weights()
 
     def forward(self, x):
@@ -166,19 +163,15 @@ class FaceMobileNetV1(nn.Module):
             conv_dw(1024, 1024, 1),
             nn.AdaptiveAvgPool2d(1)
         )
-        self.fc = nn.Linear(1024, n_classes)
-        self.sigmoid = nn.Sigmoid()
+        self.fc = nn.Sequential(
+            nn.Linear(1024, 100),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(100, n_classes)
+        )
 
     def forward(self, x):
         x = self.model(x)
         x = x.view(-1, 1024)
-        x = self.fc(x)
-        x = self.sigmoid(x)
+        x = torch.sigmoid(self.fc(x))
         return x
-
-def face_mobilenet(input_size=1024, version=1):
-    if version == 2:
-        return FaceMobileNetV2(input_size)
-
-    elif version == 1:
-        return FaceMobileNetV1()

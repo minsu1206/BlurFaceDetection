@@ -1,17 +1,18 @@
-import argparse
+import torch
+import os
 import pandas as pd
 import numpy as np
-import math, cv2, os
+import cv2
 from torch.utils.data import Dataset
-from utils import *
-import matplotlib.pyplot as plt
+
 
 class FaceDataset(Dataset):
-	def __init__(self, txt_file, option='clean', calc='psnr'):
+	def __init__(self, txt_file, option='clean', calc='psnr', transform=None, input_size=None):
 		'''
 			face dataset module
 			txt file must include root directory of sample images
 		'''
+		self.transform = transform
 		self.calc = calc
 		assert calc in ['psnr', 'ssim', 'degree'], "Not available metric"
 
@@ -27,6 +28,11 @@ class FaceDataset(Dataset):
 			self.sample_paths, self.labels = self._get_blur_samples(sample_root)
 		else:
 			raise ValueError("option should be 'clean' or 'blur'")
+
+		if input_size is None:
+			self.input_size = 1024
+		else:
+			self.input_size = input_size
 
 	def _get_clean_samples(self, roots):
 		'''
@@ -61,7 +67,7 @@ class FaceDataset(Dataset):
 					if ext in ['.png', '.jpg', 'PNG', 'JPG', 'JPEG'] and 'blur' in path:
 						filepath = os.path.join(path, filename)
 						paths += [filepath]
-						labels.append(df.loc[df['filename'] == filepath][self.calc].item())
+						labels.append(np.float32(df.loc[df['filename'] == filepath][self.calc].item()))
 						
 		return paths, labels
 
@@ -72,26 +78,10 @@ class FaceDataset(Dataset):
 	def __getitem__(self, idx):
 		img_path, label = self.sample_paths[idx], self.labels[idx]
 		image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
-		return image, label
+		image = cv2.resize(image,
+						   (self.input_size, self.input_size),
+						   interpolation=cv2.INTER_AREA)
+		if self.transform:
+			image = self.transform(image).float()
 
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description='This program makes dataset for face samples')
-	parser.add_argument('--source', type=str, help='Needs txt file containing roots', default = '../config/test.txt')
-	parser.add_argument('--option', type=str, help='choose between clean and blur', default='blur')
-	parser.add_argument('--calc', type=str, help='choose between psnr, ssim, degree', default='psnr')
-	args = parser.parse_args()
-	dataset = FaceDataset(args.source, args.option, args.calc)
-
-	plt.figure(figsize=(20, 20))
-	for i in range(len(dataset)):
-		image, label = dataset[i]
-		plt.subplot(5, 5, i+1)
-		plt.imshow(image)
-		plt.axis('off')
-		plt.title(f'Label : {label:.4f}', fontsize=16)
-		if i==24:
-			break
-	name=input("Enter anything to save the img(if do not want to save, enter 'no') :")
-	if name != 'no':
-		plt.savefig(f'result_{name}.png')
-	plt.show()
+		return image, torch.from_numpy(np.asarray(label))
