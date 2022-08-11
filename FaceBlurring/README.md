@@ -68,6 +68,29 @@ data
 │   │   ├── face_sample2.png(or .jpg)
 └── sample_root3
 ```
+```
+...
+data
+├── sample_root1
+│   ├── clean (<-> blur)
+│   │   ├── folder1
+│   │   │      ├── face_sample0.png(or jpg)
+│   │   │      ├── face_sample1.png(or jpg)
+│   │   │      ├── face_sample2.png(or jpg)
+│   │   ├── folder2
+│   │   │      ├── face_sample0.png(or jpg)
+│   │   │      ├── face_sample1.png(or jpg)
+│   │   │      ├── face_sample2.png(or jpg)
+│   │   ├── folder3
+│   │   │      ├── face_sample0.png(or jpg)
+│   │   │      ├── face_sample1.png(or jpg)
+├── sample_root2
+│   ├── clean
+│   │   ├── folder1
+│   │   ├── folder2
+│   │   ├── fdoler3
+└── sample_root3
+```
 You have to update test.txt file as
 ```txt
 ../data/sample_root1/
