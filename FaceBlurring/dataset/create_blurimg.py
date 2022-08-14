@@ -22,7 +22,6 @@ class CreateBlurImg:
 
 		# motion blur method
 		self.blur_method = blur_method
-		self._create_sample_dirs()
 		
 		if self.blur_method == 'defocus' or self.blur_method is None:
 			# Get motion blur hyperparameters
@@ -50,6 +49,8 @@ class CreateBlurImg:
 				self.parameters.update(motionblur_hyperparameters)
 		else:
 			raise ValueError(f'{blur_method} is not an available blur method')
+
+		self._create_sample_dirs()
 
 	def _get_all_imgs(self, root):
 		'''
