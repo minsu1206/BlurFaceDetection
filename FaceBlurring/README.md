@@ -31,7 +31,7 @@ https://pytorch.org/get-started/locally/
 ## 1. Cloning repository and get ready to generate samples
 
 ```bash
-  git clone https://github.com/junia3/FaceBlurring.git
+  git clone -b blur-type-dataset --single-branch https://github.com/minsu1206/BlurFaceDetection.git
 ```
 You can just cloning this repo into your own computer  
 And finally the directory hierarchy is configured as,  
@@ -72,7 +72,7 @@ data
 ...
 data
 ├── sample_root1
-│   ├── clean (<-> blur)
+│   ├── clean (<-> blur_{blur_type}_{blur_degree})
 │   │   ├── folder1
 │   │   │      ├── face_sample0.png(or jpg)
 │   │   │      ├── face_sample1.png(or jpg)
