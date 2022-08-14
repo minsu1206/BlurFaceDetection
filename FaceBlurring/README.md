@@ -112,12 +112,12 @@ You should first get samples and make directory like above structure(warning!!!!
 I show an example command to create blurred images and save them with label information
 ```bash
    cd /dataset
-   python create_blurring.py --blur defocus --save True --label True
+   python create_blurring.py --blur defocus --save True --label True --hyperparam '{"degree": 50}'
 ```
 Above command would generate blurred image with defocus method. Another option is 'deblurGAN'
 ```bash
    cd /dataset
-   python create_blurring.py --blur deblurGAN --save True --label True
+   python create_blurring.py --blur deblurGAN --save True --label True --hyperparam '{"expl": 0.001, "part":2}'
 ```
 and simply you can just generate blur images and save them with labels, into default setting(defocus, save images and label).
 ```bash
