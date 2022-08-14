@@ -1,4 +1,5 @@
 import argparse
+import json
 from tqdm import tqdm
 import pandas as pd
 from blur import *
@@ -191,7 +192,7 @@ if __name__ == "__main__":
 	parser.add_argument('--label', type=bool, help='option to create labels', default='True')
 	parser.add_argument('--calc', type=str, help='option to make label(metrics), psnr, ssim, degree is available', default='psnr')
 	parser.add_argument('--scrfd', type=bool, help='Apply scrfd crop and align on the image', default=False)
-	parser.add_argument('--hyperparam', type=dict, help='if blur type defocus : {"degree" : 50}, if blur type deblurGAN : {"expl":0.001, "part":2}', default={'degree' : 50})
+	parser.add_argument('--hyperparam', type=json.loads, help='if blur type defocus : \'{"degree": 50}\', if blur type deblurGAN : \'{"expl": 0.001, "part":2}\'', default='{"degree": 50}')
 	args = parser.parse_args()
 
 	blurrer = CreateBlurImg("../data", args.blur, args.hyperparam)
