@@ -19,10 +19,10 @@ class CreateBlurImg:
 
 		# Get sample paths in list
 		self.sample_paths = self._get_all_imgs(data_dir)
-		self._create_sample_dirs()   
 
 		# motion blur method
 		self.blur_method = blur_method
+		self._create_sample_dirs()
 		
 		if self.blur_method == 'defocus' or self.blur_method is None:
 			# Get motion blur hyperparameters
