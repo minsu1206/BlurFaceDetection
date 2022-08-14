@@ -131,7 +131,7 @@ class CreateBlurImg:
 					subpath = '/'.join(path2list[4:])
 					blurpath = os.path.join(rootpath, f'blur_defocus_{self.parameters["degree"]}', subpath)
 
-					assert len(blurpath)+1 == len(path), 'You should create data directory properly'
+					# assert len(blurpath)+1 == len(path), 'You should create data directory properly'
 					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
 
 				elif label:

@@ -55,7 +55,7 @@ def blurring(img, param):
         cv2.normalize(blurred, blurred, 0, 255, cv2.NORM_MINMAX)
         blurred = np.array(blurred, dtype=np.uint8)
 
-    return blurred, degree/dmax
+    return blurred, degree/200
 
 
 class Trajectory(object):
