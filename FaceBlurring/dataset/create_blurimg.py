@@ -114,7 +114,7 @@ class CreateBlurImg:
 					subpath = '/'.join(path2list[4:])
 					blurpath = os.path.join(rootpath, f'blur_defocus_{self.parameters["degree"]}', subpath)
 
-					assert len(blurpath)+1 == len(path), 'You should create data directory properly'
+					# assert len(blurpath)+1 == len(path), 'You should create data directory properly'
 					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
 					
 					dict_for_label['filename'] += [os.path.join(blurpath, os.path.basename(image_file))]
@@ -154,7 +154,7 @@ class CreateBlurImg:
 					# blurpath = os.path.join(rootpath, 'blur', subpath)
 					blurpath = os.path.join(rootpath, f'blur_deblurGAN_{self.parameters["expl"]}_{self.parameters["part"]}', subpath)
 
-					assert len(blurpath)+1 == len(path), 'You should create data directory properly'
+					# assert len(blurpath)+1 == len(path), 'You should create data directory properly'
 					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
 					
 					dict_for_label['filename'] += [os.path.join(blurpath, os.path.basename(image_file))]
@@ -171,7 +171,7 @@ class CreateBlurImg:
 					# blurpath = os.path.join(rootpath, 'blur', subpath)
 					blurpath = os.path.join(rootpath, f'blur_deblurGAN_{self.parameters["expl"]}_{self.parameters["part"]}', subpath)
 
-					assert len(blurpath)+1 == len(path), 'You should create data directory properly'
+					# assert len(blurpath)+1 == len(path), 'You should create data directory properly'
 					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
 				
 				elif label:
