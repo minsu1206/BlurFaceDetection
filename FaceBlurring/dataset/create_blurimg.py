@@ -26,7 +26,6 @@ class CreateBlurImg:
 		if self.blur_method == 'defocus' or self.blur_method is None:
 			# Get motion blur hyperparameters
 			if motionblur_hyperparameters is None:
-				# self.parameters = {'mean':50, 'var':20, 'dmin':0, 'dmax':100}
 				self.parameters = {'degree' : 50}
 			else:
 				self.parameters = motionblur_hyperparameters
@@ -114,7 +113,6 @@ class CreateBlurImg:
 					subpath = '/'.join(path2list[4:])
 					blurpath = os.path.join(rootpath, f'blur_defocus_{self.parameters["degree"]}', subpath)
 
-					# assert len(blurpath)+1 == len(path), 'You should create data directory properly'
 					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
 					
 					dict_for_label['filename'] += [os.path.join(blurpath, os.path.basename(image_file))]
@@ -131,7 +129,6 @@ class CreateBlurImg:
 					subpath = '/'.join(path2list[4:])
 					blurpath = os.path.join(rootpath, f'blur_defocus_{self.parameters["degree"]}', subpath)
 
-					# assert len(blurpath)+1 == len(path), 'You should create data directory properly'
 					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
 
 				elif label:
@@ -139,10 +136,6 @@ class CreateBlurImg:
 
 		elif self.blur_method == 'deblurGAN':
 			for image_file in tqdm(self.sample_paths):
-				# self.parameters['expl'] = np.random.choice([0.003, 0.001,
-				# 						                    0.0007, 0.0005,
-				# 											0.0003, 0.0001])
-				# self.parameters['part'] = np.random.choice([1, 2, 3])
 				trajectory = Trajectory(self.parameters).fit()
 				psf, mag = PSF(self.parameters['canvas'], trajectory=trajectory).fit()
 				image, blurred = BlurImage(image_file, psf, self.parameters['part'], scrfd, app).blur_image()
@@ -151,10 +144,8 @@ class CreateBlurImg:
 					path2list = path.split('/')
 					rootpath = '/'.join(path2list[:3])
 					subpath ='/'.join(path2list[4:])
-					# blurpath = os.path.join(rootpath, 'blur', subpath)
 					blurpath = os.path.join(rootpath, f'blur_deblurGAN_{self.parameters["expl"]}_{self.parameters["part"]}', subpath)
 
-					# assert len(blurpath)+1 == len(path), 'You should create data directory properly'
 					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
 					
 					dict_for_label['filename'] += [os.path.join(blurpath, os.path.basename(image_file))]
@@ -168,10 +159,8 @@ class CreateBlurImg:
 					path2list = path.split('/')
 					rootpath = '/'.join(path2list[:3])
 					subpath ='/'.join(path2list[4:])
-					# blurpath = os.path.join(rootpath, 'blur', subpath)
 					blurpath = os.path.join(rootpath, f'blur_deblurGAN_{self.parameters["expl"]}_{self.parameters["part"]}', subpath)
 
-					# assert len(blurpath)+1 == len(path), 'You should create data directory properly'
 					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
 				
 				elif label:

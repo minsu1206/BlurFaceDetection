@@ -8,34 +8,10 @@ def blurring(img, param):
     '''
         Apply motion blur to the image(from defocus)
         img : source img
-        param(dictionary) : [mean, var, dmin, dmax]
+        param(dictionary) : [degree]
     '''
-    # mean, var, dmin, dmax = param['mean'], param['var'], param['dmin'], param['dmax']
-    # # Create random degree and random angle with parameters
-    # random_degree = dmax + 1
-    # while random_degree < dmin or random_degree > dmax:
-    #     random_degree = int(random.normalvariate(mean, var))
-    #random_degree = random.randint(dmin, dmax)
     degree = param['degree']
     random_angle = random.randint(-180, 180)
-
-    # if random_degree == 0:
-    #     image = np.array(img)
-    #     cv2.normalize(image, image, 0, 255, cv2.NORM_MINMAX)
-    #     blurred = np.array(image, dtype=np.uint8)
-
-    # else:
-    #     # Create random motion blur kernel
-    #     M = cv2.getRotationMatrix2D((random_degree / 2, random_degree / 2), random_angle, 1)
-    #     kernel = np.diag(np.ones(random_degree))
-    #     kernel = cv2.warpAffine(kernel, M, (random_degree, random_degree))
-    #     kernel = kernel / random_degree
-
-    #     # Apply kernel on the image sample
-    #     image = np.array(img)
-    #     blurred = cv2.filter2D(image, -1, kernel)
-    #     cv2.normalize(blurred, blurred, 0, 255, cv2.NORM_MINMAX)
-    #     blurred = np.array(blurred, dtype=np.uint8)
 
     if degree == 0:
         image = np.array(img)
