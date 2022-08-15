@@ -70,7 +70,9 @@ def train(cfg, args):
 	val_epoch = cfg['train']['val_epoch']
 
 	device = args.devices
-	
+	# DDP Not supported yet.
+	if 'cuda' in device and torch.cuda.is_available():
+		model = model.to(device)
 
 	os.makedirs(args.save, exist_ok=True)
 
@@ -178,7 +180,7 @@ if __name__ == "__main__":
 	parser.add_argument('--config', type=str, default='')
 	parser.add_argument('--save', type=str, default='')
 	parser.add_argument('--batch', type=int, default=-1)
-	parser.add_argument('--device', type=int, nargs='+', default=-1)
+	parser.add_argument('--device', type=str, default='cpu')
 	parser.add_argument('--resume', type=str, default='')
 	args = parser.parse_args()
 
