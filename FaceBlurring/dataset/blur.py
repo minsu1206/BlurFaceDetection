@@ -15,8 +15,12 @@ def blurring(img, param):
     random_degree = dmax + 1
     while random_degree < dmin or random_degree > dmax:
         random_degree = int(random.normalvariate(mean, var))
+        
     #random_degree = random.randint(dmin, dmax)
-    random_angle = random.randint(-180, 180)
+    if random_degree == 1:
+        random_angle = random.randint(-88, 88)
+    else:
+        random_angle = random.randint(-180, 180)
 
     if random_degree == 0:
         image = np.array(img)
