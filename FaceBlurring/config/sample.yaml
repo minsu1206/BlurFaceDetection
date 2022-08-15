@@ -1,0 +1,17 @@
+exp_name: sample
+dataset:
+  batch: 1
+  txt_path: ''
+  img_path: ''
+  num_workers: 1
+train:
+  model: 'resnet50'
+  lr: 1e-3
+  epochs: 100
+  val_epoch: 1
+  loss: {'MSE': 1}
+  optim: 'SGD'
+  scheduler: {'MultiStepLR': {"milestones": 50, "decay": 0.1}}
+
+  
+
