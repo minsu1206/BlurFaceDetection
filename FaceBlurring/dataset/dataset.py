@@ -58,7 +58,7 @@ class FaceDataset(Dataset):
 		'''
 		paths = []
 		labels = []
-		label_path = ".."+os.path.sep+os.path.join('data', f"label_blur_{self.blur_method}", 'label', "label.csv")
+		label_path = ".."+os.path.sep+os.path.join('data', f"label_blur_{self.method}", 'label', "label.csv")
 		assert os.path.isfile(label_path), "label file does not exist"
 		df = pd.read_csv(label_path)
 		assert self.calc in list(df.columns.values), 'Regenerate label with same metric'
