@@ -53,21 +53,6 @@ This is just a framework to create dataset. You should add your own "face datase
 ../data/sample_root/
 ```
 If you add your own data samples to directory, add all data roots in the test.txt file line by line. For example, if you configured data samples like below,
-```bash
-...
-data
-├── sample_root1
-│   ├── clean
-│   │   ├── face_sample0.png(or .jpg)
-│   │   ├── face_sample1.png(or .jpg)
-│   │   ├── face_sample2.png(or .jpg)
-├── sample_root2
-│   ├── clean
-│   │   ├── face_sample0.png(or .jpg)
-│   │   ├── face_sample1.png(or .jpg)
-│   │   ├── face_sample2.png(or .jpg)
-└── sample_root3
-```
 ```
 ...
 data
