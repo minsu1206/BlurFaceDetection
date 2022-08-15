@@ -7,14 +7,17 @@ from torch.utils.data import Dataset
 
 
 class FaceDataset(Dataset):
-	def __init__(self, txt_file, option='clean', calc='psnr', transform=None, input_size=None):
+	def __init__(self, txt_file, option='clean', calc='psnr', method='defocus', transform=None, input_size=None):
 		'''
 			face dataset module
 			txt file must include root directory of sample images
 		'''
 		self.transform = transform
 		self.calc = calc
+		self.method = method
+
 		assert calc in ['psnr', 'ssim', 'degree'], "Not available metric"
+		assert method in ['defocus', 'deblurGAN'], "Not available method"
 
 		with open(txt_file, 'r') as f:
 			lines = f.readlines()
@@ -55,7 +58,7 @@ class FaceDataset(Dataset):
 		'''
 		paths = []
 		labels = []
-		label_path = "../data/label/label.csv"
+		label_path = ".."+os.path.sep+os.path.join('data', f"label_blur_{self.blur_method}", 'label', "label.csv")
 		assert os.path.isfile(label_path), "label file does not exist"
 		df = pd.read_csv(label_path)
 		assert self.calc in list(df.columns.values), 'Regenerate label with same metric'
@@ -64,7 +67,7 @@ class FaceDataset(Dataset):
 			for (path, directory, files) in os.walk(root):
 				for filename in files:
 					ext = os.path.splitext(filename)[-1]
-					if ext in ['.png', '.jpg', 'PNG', 'JPG', 'JPEG'] and 'blur' in path:
+					if ext in ['.png', '.jpg', 'PNG', 'JPG', 'JPEG'] and 'blur_'+self.method in path:
 						filepath = os.path.join(path, filename)
 						paths += [filepath]
 						labels.append(np.float32(df.loc[df['filename'] == filepath][self.calc].item()))

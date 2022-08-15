@@ -32,8 +32,8 @@ class CreateBlurImgSingle:
 
 	def generate_samples_randomly(self, result_pth=None, sample_num=2000, save=True):
 		if result_pth is None:
-			os.makedirs('../examples/'+'samples', exist_ok=True)
-			result_pth = '../examples/'+'samples'
+			os.makedirs('..'+os.path.sep+os.path.join('examples', 'samples'), exist_ok=True)
+			result_pth = '..'+os.path.sep+os.path.join('examples', 'samples')
 		
 		if os.path.isfile(os.path.join(result_pth, 'results_psnr.txt')):
 			os.remove(os.path.join(result_pth, 'results_psnr.txt'))
@@ -85,7 +85,7 @@ class CreateBlurImgSingle:
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='This program generates samples for one image sample')
-	parser.add_argument("--sample", type=str, help="You should enter the image path", default='../examples/00018.png')
+	parser.add_argument("--sample", type=str, help="You should enter the image path", default='..'+os.path.sep+"examples"+os.path.sep+"00018.png")
 	parser.add_argument("--blur", type=str, help="defocus, deblurGAN is available", default='defocus')
 	parser.add_argument("--iter", type=int, help="Iteration(sample number) to create blur samples", default=2000)
 	args = parser.parse_args()

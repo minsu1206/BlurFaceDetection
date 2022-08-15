@@ -4,7 +4,7 @@ from scipy import signal
 from utils import *
 from insightface.app import FaceAnalysis
 
-def blurring(img, param):
+def blurring(img, param, random_method='uniform'):
     '''
         Apply motion blur to the image(from defocus)
         img : source img
@@ -12,11 +12,15 @@ def blurring(img, param):
     '''
     mean, var, dmin, dmax = param['mean'], param['var'], param['dmin'], param['dmax']
     # Create random degree and random angle with parameters
-    random_degree = dmax + 1
-    while random_degree < dmin or random_degree > dmax:
-        random_degree = int(random.normalvariate(mean, var))
-        
-    #random_degree = random.randint(dmin, dmax)
+    if random_method == 'uniform':
+        random_degree = dmax + 1
+        while random_degree < dmin or random_degree > dmax:
+            random_degree = int(random.normalvariate(mean, var))
+    elif random_method == 'gaussian':
+        random_degree = random.randint(dmin, dmax)
+    else:
+        raise ValueError("This metric is not available(choose from uniform, gaussian)")
+
     if random_degree == 1:
         random_angle = random.randint(-88, 88)
     else:
@@ -184,14 +188,27 @@ class BlurImage(object):
         if os.path.isfile(image_path):
             self.image_path = image_path
             self.original = cv2.imread(self.image_path)
+
             if scrfd:
-                self.original, _ = crop_n_align(app, self.original)
+                pad = 0
+                find = False
+                while not find and pad <= 200:
+                    padded = np.pad(self.original, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
+                    face_image, find = crop_n_align(app, padded)
+                    pad += 50
+
+                if find:
+                    self.original = face_image
 
             self.shape = self.original.shape
             if len(self.shape) < 3:
                 raise Exception('We support only RGB images yet.')
             elif self.shape[0] != self.shape[1]:
                 raise Exception('We support only square images yet.')
+
+            #self.original = np.pad(self.original, ((500, 500), (500, 500), (0, 0)), 'constant', constant_values=0)
+            self.original = cv2.copyMakeBorder(self.original, 100, 100, 100, 100, cv2.BORDER_REFLECT)
+
         else:
             raise Exception(f'{image_path} is not correct path to image.')
 
@@ -208,6 +225,12 @@ class BlurImage(object):
 
         elif self.original.shape[0] != self.original.shape[1]:
             raise Exception('We support only square images yet.')
+
+    def _center_crop(self, source, dst_size):
+        H, W, C = source.shape
+        assert H >= dst_size and W >= dst_size, 'the dimension should be bigger than dst size'
+        H_diff, W_diff = H-dst_size, W-dst_size
+        return source[H_diff//2:H_diff//2+dst_size, W_diff//2:W_diff//2+dst_size, :]
 
     def blur_image(self):
         if self.part is None:
@@ -241,6 +264,8 @@ class BlurImage(object):
             blured[:, :, 2] = np.array(signal.fftconvolve(blured[:, :, 2], tmp, 'same'))
             blured = cv2.normalize(blured, blured, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
             result.append(np.abs(blured))
-        self.result = np.array(result[0]*255, dtype=np.uint8)
 
+        self.result = np.array(result[0]*255, dtype=np.uint8)
+        self.original = self._center_crop(self.original, dst_size=1024)
+        self.result = self._center_crop(self.result, dst_size=1024)
         return self.original, self.result
