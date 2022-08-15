@@ -65,7 +65,7 @@ def test(cfg, args, mode):
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--config', type=str, default='')
-	parser.add_argument('--device', type=int, default=-1)
+	parser.add_argument('--device', type=str, default='cpu')
 	parser.add_argument('--resume', type=str, default='', required=True)
 	parser.add_argument('--mode', type=str)
 	args = parser.parse_args()
@@ -78,5 +78,8 @@ if __name__ == "__main__":
 	assert mode in ['video', 'image']
 
 	test(cfg, args, mode)
+
+	
+
 
 	
