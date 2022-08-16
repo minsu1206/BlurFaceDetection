@@ -4,6 +4,8 @@ import pandas as pd
 from blur import *
 from utils import *
 from insightface.app import FaceAnalysis
+from facenet_pytorch import InceptionResnetV1
+import torch
 
 class CreateBlurImg:
 	'''
@@ -84,6 +86,9 @@ class CreateBlurImg:
 			metric = ssim
 		elif calc == 'degree':
 			metric = 'degree'
+		elif calc == 'cosine':
+			metric = 'cosine'
+			resnet = InceptionResnetV1(pretrained='vggface2').eval()
 		else:
 			raise ValueError("Not available metric.")
 		
@@ -119,8 +124,13 @@ class CreateBlurImg:
 
 					if callable(metric):
 						dict_for_label[calc].append(metric(image, blurred))
-					else:
+					elif metric == 'degree':
 						dict_for_label[calc].append(degree)
+					elif metric == 'cosine':
+						emb_clean = resnet(torch.Tensor(image).permute(2, 0, 1).unsqueeze(0)).squeeze(0).detach().numpy()
+						emb_blur = resnet(torch.Tensor(blurred).permute(2, 0, 1).unsqueeze(0)).squeeze(0).detach().numpy()
+						cosine = np.dot(emb_clean, emb_blur)/(np.linalg.norm(emb_clean)*np.linalg.norm(emb_blur))
+						dict_for_label[calc].append(1-cosine)
 
 				elif save:
 					path = os.path.dirname(image_file)
@@ -156,8 +166,13 @@ class CreateBlurImg:
 					dict_for_label['filename'] += [os.path.join(blurpath, os.path.basename(image_file))]
 					if callable(metric):
 						dict_for_label[calc].append(metric(image, blurred))
-					else:
+					elif metric == 'degree':
 						dict_for_label[calc].append(mag)
+					elif metric == 'cosine':
+						emb_clean = resnet(torch.Tensor(image).permute(2, 0, 1).unsqueeze(0)).squeeze(0).detach().numpy()
+						emb_blur = resnet(torch.Tensor(blurred).permute(2, 0, 1).unsqueeze(0)).squeeze(0).detach().numpy()
+						cosine = np.dot(emb_clean, emb_blur)/(np.linalg.norm(emb_clean)*np.linalg.norm(emb_blur))
+						dict_for_label[calc].append(1-cosine)
 
 				elif save:
 					path = os.path.dirname(image_file)
@@ -186,7 +201,7 @@ if __name__ == "__main__":
 	parser.add_argument('--blur', type=str, help='defocus, deblurGAN is available', default='defocus')
 	parser.add_argument('--save', type=bool, help='option to save blurred images', default='True')
 	parser.add_argument('--label', type=bool, help='option to create labels', default='True')
-	parser.add_argument('--calc', type=str, help='option to make label(metrics), psnr, ssim, degree is available', default='psnr')
+	parser.add_argument('--calc', type=str, help='option to make label(metrics), psnr, ssim, degree, cosine is available', default='psnr')
 	parser.add_argument('--scrfd', type=bool, help='Apply scrfd crop and align on the image', default=False)
 	args = parser.parse_args()
 
