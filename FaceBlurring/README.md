@@ -57,6 +57,21 @@ If you add your own data samples to directory, add all data roots in the test.tx
 ...
 data
 ├── sample_root1
+│   ├── clean
+│   │   ├── face_sample0.png(or .jpg)
+│   │   ├── face_sample1.png(or .jpg)
+│   │   ├── face_sample2.png(or .jpg)
+├── sample_root2
+│   ├── clean
+│   │   ├── face_sample0.png(or .jpg)
+│   │   ├── face_sample1.png(or .jpg)
+│   │   ├── face_sample2.png(or .jpg)
+└── sample_root3
+```
+```
+...
+data
+├── sample_root1
 │   ├── clean (<-> blur)
 │   │   ├── folder1
 │   │   │      ├── face_sample0.png(or jpg)
@@ -108,6 +123,11 @@ and simply you can just generate blur images and save them with labels, into def
 ```bash
    cd /dataset
    python create_blurring.py
+```
+There are four metrics(PSNR, SSIM, degree(never recommended..), cosine) to create labels(22/08/16). I'll show an example command to create blurred samples and save them with cosine similarity label information(+SCRFD inference).
+```bash
+   cd /dataset
+   python create_blurring.py --blur defocus --save True --label True --calc cosine --scrfd True
 ```
 ---
 ## 3. Evaluate and Visualize samples
