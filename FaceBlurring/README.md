@@ -167,7 +167,7 @@ Open "Tutorial.jpynb" with google colab.
 ## Train baseline models with generated dataset
 #### 1. Generate dataset
 - method from Defocus and Motion Blur Detection with Deep Contextual Features(https://onlinelibrary.wiley.com/doi/full/10.1111/cgf.13567) and github https://github.com/Imalne/Defocus-and-Motion-Blur-Detection-with-Deep-Contextual-Features
-- Gaussian random variable to choose pixel values for motion blurring
+- Gaussian(or uniform) random variable to choose pixel values for motion blurring
 - Degree : $d/d_{max}$
 - $d_{min} = 0, d_{max} = 100$
 - Code below
@@ -190,6 +190,9 @@ Open "Tutorial.jpynb" with google colab.
       cv2.normalize(blurred, blurred, 0, 255, cv2.NORM_MINMAX)
       blurred = np.array(blurred, dtype=np.uint8)
 ```
+  
+- Random trajectories with random $d$ and $\theta$ to create blur images
+- Use cosine similarity metric
 
 #### 2. Build mobilenet(V1, V2) and Small ResNet architecture for regression
 #### 3. Train mobilenet(V2) with blur samples
