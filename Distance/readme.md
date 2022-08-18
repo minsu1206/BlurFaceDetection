@@ -149,7 +149,7 @@ def cos_sim(emb1, emb2):
     return F.cosine_similarity(emb_1, emb_2, 1).item()
 ```
 
-Be careful with tensor dimension
+* Be careful with tensor dimension
 
 ---
 # 4. Average distance and similarity on 30 samples
