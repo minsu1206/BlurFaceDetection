@@ -209,7 +209,7 @@ $$ SSIM(x, y) = \left[ l(x, y) \right]^\alpha \cdot \left[ c(x, y) \right]^\beta
 
 $$ SSIM(x, y) = \frac{(2\mu_x \mu_y +C_1)(2 \sigma_{xy}+C_2)}{(\mu_x^2+\mu_y^2+C_1)(\sigma_x^2+\sigma_y^2+C_2)} $$
 
-<p align="center"><img src="./results/ssim_compare.png", width="550">
+<p align="center"><img src="./results/metric_compare.png", width="550">
 
 As can be seen from the figure above, it can be seen that the image on the left looks clearer visually than the image on the right, but the results of PSNR and SSIM metric appear opposite to each other. However, if you extract the same sample through pretrained-FaceNet(https://github.com/timesler/facenet-pytorch) and utilize it to obtain cosine simularity,
 
