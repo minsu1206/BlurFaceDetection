@@ -117,10 +117,10 @@ def calculate_distances(img_dir, idx):
 ### (1) Use numpy
 ```python
 def L1_distance(emb1, emb2):
-    return np.abs(np.sum(emb1 - emb2))
+    return np.sum(np.abs(emb1 - emb2))
 
 def L2_distance(emb1, emb2):
-    return np.sqrt(np.sum(torch.square(emb1 - emb2)))
+    return np.sqrt(np.sum(np.square(emb1 - emb2)))
 
 def cos_sim(emb1, emb2):
     return np.dot(emb1, emb2)/(np.linalg.norm(emb1)*np.linalg.norm(emb2))
