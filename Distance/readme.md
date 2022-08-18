@@ -150,6 +150,7 @@ def cos_sim(emb1, emb2):
 ```
 
 Be careful with tensor dimension
+
 ---
 # 4. Average distance and similarity on 30 samples
 $$ L_1(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \left| e_i - \epsilon_i^j \right| $$
@@ -162,5 +163,34 @@ for reference face embedding $e_i = g(r_i)$ from face recognition model $g(\cdot
 and blurred face embedding $\epsilon_i^j = g(b_i^j)$ from face recognition model inference on blurred face image $k_j * r_i$ with $j^{th}$ blur kernel $k_j$.
 
 ```python
+resnet = InceptionResnetV1(pretrained='vggface2').eval()
+path = './data/FFHQ_1024/clean/'
 
+look_upto = 0
+l1_mean, l2_mean, cos_mean = np.zeros(100), np.zeros(100), np.zeros(100)
+
+for subpath in os.listdir(path):
+    if os.path.splitext(subpath)[-1] not in ['.png', '.jpg']:
+        sample_path = os.path.join(path, subpath)
+        look_upto += 1
+        for i in tqdm(range(1, 101)):
+            _, l1, l2, cossim = calculate_distances(sample_path, i)
+            l1_mean[i-1] += l1
+            l2_mean[i-1] += l2
+            cos_mean[i-1] += cossim
+
+        if look_upto == 30:
+            break
+
+l1_mean /= look_upto
+l2_mean /= look_upto
+cos_mean /= look_upto
 ```
+
+---
+# 5. Visualize results
+## (1) Average distances and similarity for samples generated with random $\theta$.
+<img src='./results/random_L1L2COS.png'/>
+
+## (2) Average distances and similarity for samples generated with fixed $\theta$.
+<img src='./results/fix_L1L2COS.png'/>
