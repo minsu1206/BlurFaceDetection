@@ -128,7 +128,7 @@ def cos_sim(emb1, emb2):
 or you can just use np.linalg.norm like below
 ```python
 def L1_distance(emb1, emb2):
-    return np.linalg.norm(em1-emb2, 1)
+    return np.linalg.norm(emb1-emb2, 1)
 
 def L2_distance(emb1, emb2):
     return np.linalg.norm(emb1-emb2, 2)
