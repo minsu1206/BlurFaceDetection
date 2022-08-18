@@ -143,10 +143,10 @@ def L1_distance(emb1, emb2):
     return torch.norm(emb1-emb2, p=1, dim=1).item()
 
 def L2_distance(emb1, emb2):
-    return torch.norm(em1-em2, p=2, dim=1).item()
+    return torch.norm(emb1-emb2, p=2, dim=1).item()
 
 def cos_sim(emb1, emb2):
-    return F.cosine_similarity(emb_1, emb_2, 1).item()
+    return F.cosine_similarity(emb1, emb2, 1).item()
 ```
 
 * Be careful with tensor dimension
