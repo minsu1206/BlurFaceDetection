@@ -190,7 +190,33 @@ cos_mean /= look_upto
 ---
 # 5. Visualize results
 ## (1) Average distances and similarity for samples generated with random $\theta$.
-<img src='./results/random_L1L2COS.png'/>
+<p align="center"><img src='./results/random_L1L2COS.png', width="550">
 
 ## (2) Average distances and similarity for samples generated with fixed $\theta$.
-<img src='./results/fix_L1L2COS.png'/>
+<p align="center"><img src='./results/fix_L1L2COS.png', width="550">
+
+---
+# 6. Additional test
+PSNR and SSIM, commonly indicators for measuring image or image quality, have been found to be difficult to be used as visual indicators of blur. PSNR is the noise ratio for the maximum signal calculated based on pixel by pixel difference, and if the image to be compared is shifted to the reference image, it is judged that it is actually more corrupt than the image with a lot of blur.
+
+$$ MSE = \frac{\sum_{M, N} \left[ I_1(m, n) - I_2(m, n) \right]^2 }{M * N} $$
+
+$$ PSNR = 10 \log_{10} \left( \frac{R^2}{MSE} \right) $$
+
+Unlike PSNR, SSIM is a method designed to evaluate human visual quality differences rather than numerical errors, and Luminance, Contrast, and Structural evaluate quality in three aspects. However, it was judged that the degree of blur could not be visually represented because there was a parameter that looked at the structural side of the pixel along with PSNR.
+
+$$ SSIM(x, y) = \left[ l(x, y) \right]^\alpha \cdot \left[ c(x, y) \right]^\beta \cdot \left[ s(x, y) \right]^\gamma $$
+
+$$ SSIM(x, y) = \frac{(2\mu_x \mu_y +C_1)(2 \sigma_{xy}+C_2)}{(\mu_x^2+\mu_y^2+C_1)(\sigma_x^2+\sigma_y^2+C_2)} $$
+
+<p align="center"><img src="./results/ssim_compare.png", width="550">
+
+As can be seen from the figure above, it can be seen that the image on the left looks clearer visually than the image on the right, but the results of PSNR and SSIM metric appear opposite to each other. However, if you extract the same sample through pretrained-FaceNet(https://github.com/timesler/facenet-pytorch) and utilize it to obtain cosine simularity,
+
+<p align="center"><img src="./results/compare.png", width="550">
+
+It can be seen that the image on the clean left is the same (1.00) as the original person, and the image on the right side with the blur shows a lower cosine similarity(0.88), reflecting the visual blur. This also shows good results in the tendency to angles, for example, if you look at the sample and the cosine similarity,
+
+<p align="center"><img src="./results/blur_random_cosine.png", width="550">
+
+In fact, the image on the right has more blurs on the degree ( $d$ ), but the image on the left is more blurred by the angle( $\theta$ ) of the kernel that produces motion blur. Even in this case, it can be seen that cosine simplicity well represents an image that looks more visually blurred.
