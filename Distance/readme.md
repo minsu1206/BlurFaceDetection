@@ -155,7 +155,7 @@ def cos_sim(emb1, emb2):
 # 4. Average distance and similarity on 30 samples
 $$ L_1(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \left| e_i - \epsilon_i^j \right| $$
 
-$$ L_2(j)^{avg} = \frac{1}{30} \sqrt{\sum_{i=0}^{29} \left( e_i-\epsilon_i^j \right)} $$
+$$ L_2(j)^{avg} = \frac{1}{30} \sqrt{\sum_{i=0}^{29} \left( e_i-\epsilon_i^j \right)^2} $$
 
 $$ \text{Similarity}(j)^{avg} = \frac{1}{30} = \frac{1}{30} \sum_{i=0}^{29} \left( \frac{\left| e_i \cdot \epsilon_i^j \right|}{\left| e_i \right| \times \left| \epsilon_i^j \right|} \right) $$
 
