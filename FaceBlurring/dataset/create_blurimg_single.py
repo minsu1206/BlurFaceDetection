@@ -7,23 +7,30 @@ class CreateBlurImgSingle:
 	'''
 		class to create blur images for single image dataset
 	'''
-	def __init__(self, img_path, blur_method='defocus'):
+	def __init__(self, img_path, blur_method='defocus', motionblur_hyperparameters=None):
 		'''
 		create blurred image from the single image with random hyperparameters
 		'''
 		available = ['.jpg', '.png', '.JPG', '.PNG', 'JPEG']
 		assert os.path.splitext(img_path)[-1] in available, 'You cannot open this type of file'
 		self.blur_method = blur_method
-		if blur_method == 'defocus':
-			self.parameters = {'mean':50, 'var':20, 'dmin':0, 'dmax':200}
+		if blur_method == 'defocus' or blur_method is None:
+			if motionblur_hyperparameters is None:
+				self.parameters = {'mean':50, 'var':20, 'dmin':0, 'dmax':200}
+			else:
+				self.parameters = motionblur_hyperparameters
+
 		elif blur_method == 'deblurGAN':
-			self.parameters = {'canvas':64,
-								'iters':2000,
-								'max_len':60,
-								'expl':np.random.choice([0.003, 0.001, 0.0007, 0.0005,
-														0.0003, 0.0001]),
-								'part':np.random.choice([1, 2, 3])
-							  }
+			if motionblur_hyperparameters is None:
+				self.parameters = {'canvas':64,
+									'iters':2000,
+									'max_len':60,
+									'expl':np.random.choice([0.003, 0.001, 0.0007, 0.0005,
+															0.0003, 0.0001]),
+									'part':np.random.choice([1, 2, 3])
+								}
+			else:
+				self.parameters = motionblur_hyperparameters					
 		else:
 			raise ValueError("Not available metric yet")
 
