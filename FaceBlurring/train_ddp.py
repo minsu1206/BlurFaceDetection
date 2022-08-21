@@ -193,7 +193,7 @@ def train(cfg, args):
 
 def select_device(device):
 	visible_gpu = []
-	if device == 'cpu':
+	if device < 0:
 		return 'cpu'
 	
 	if isinstance(device, list):
@@ -256,7 +256,7 @@ if __name__ == "__main__":
 	parser.add_argument('--config', type=str, default='')
 	parser.add_argument('--save', type=str, default='')
 	parser.add_argument('--batch', type=int, default=-1)
-	parser.add_argument('--device', type=str, default='cpu')
+	parser.add_argument('--device', type=int, nargs='+', default=-1)
 	parser.add_argument('--resume', type=str, default='')
 	args = parser.parse_args()
 

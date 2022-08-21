@@ -11,13 +11,14 @@ class CreateBlurImg:
 	'''
 		class to create blur image dataset from raw images
 	'''
-	def __init__(self, data_dir, blur_method='defocus', motionblur_hyperparameters=None):
+	def __init__(self, data_dir, blur_method='defocus', motionblur_hyperparameters=None, device=None):
 		'''
 			create blurred images in the data_directory
 		'''
+		self.device = 'cpu' if device is None else device
 		# Available img files
 		self.available = ['.png', '.jpg', 'PNG', 'JPG', 'JPEG']
-
+		
 		# motion blur method
 		assert blur_method in ['defocus', 'deblurGAN']
 		self.blur_method = blur_method
@@ -59,21 +60,28 @@ class CreateBlurImg:
 		print('Check all sample images(clean)...')
 		for (path, directory, files) in tqdm(os.walk(root)):
 			for filename in files:
+				# print(filename)
 				ext = os.path.splitext(filename)[-1]
 				if ext in self.available and 'clean' in path:
 					paths += [os.path.join(path, filename)]
-
 		return paths
 
 	def _create_sample_dirs(self):
 		print('Create sample directories...')
 		for files in tqdm(self.sample_paths):
+			# FIXME : [8/21] 경로 수정
 			path = os.path.dirname(files)
-			path2list = path.split(os.path.sep)
-			rootpath = os.path.sep.join(path2list[:3])
-			subpath = os.path.sep.join(path2list[4:])
-			blurpath = os.path.join(rootpath, 'blur_'+self.blur_method, subpath)
+			# print(path)
+			# path2list = path.split(os.path.sep)
+			# rootpath = os.path.sep.join(path2list[:3])
+			# subpath = os.path.sep.join(path2list[4:])
+			# blurpath = os.path.join(rootpath, 'blur_'+self.blur_method, subpath)
+			# print(blurpath)
+			blurpath = path.replace('clean', 'blur_' + self.blur_method)
+			# print(blur)
 			os.makedirs(blurpath, exist_ok=True)
+			# break
+
 
 	def generate_blur_images(self, save=True, label=False, calc='psnr', scrfd=False):
 		# scrfd normalize and align
@@ -88,7 +96,8 @@ class CreateBlurImg:
 			metric = 'degree'
 		elif calc == 'cosine':
 			metric = 'cosine'
-			resnet = InceptionResnetV1(pretrained='vggface2').eval()
+			# FIXME : device
+			resnet = InceptionResnetV1(pretrained='vggface2', device=self.device).eval()
 		else:
 			raise ValueError("Not available metric.")
 		
@@ -112,23 +121,32 @@ class CreateBlurImg:
 
 				blurred, degree = blurring(image, self.parameters)
 				if save and label:
-					path = os.path.dirname(image_file)
-					path2list = path.split(os.path.sep)
-					rootpath = os.path.sep.join(path2list[:3])
-					subpath = os.path.sep.join(path2list[4:])
-					blurpath = os.path.join(rootpath, 'blur_'+self.blur_method, subpath)
-					assert len(path)+len(self.blur_method) == len(blurpath), 'You should create data directory properly'
-					cv2.imwrite(os.path.join(blurpath, os.path.basename(image_file)), blurred)
+					# path = os.path.dirname(image_file)
+					# path2list = path.split(os.path.sep)
+					# rootpath = os.path.sep.join(path2list[:3])
+					# subpath = os.path.sep.join(path2list[4:])
+					# blurpath = os.path.join(rootpath, 'blur_'+self.blur_method, subpath)
+
+					# FIXME : 위 방식대로 하면 경로가 ../data 가 아닐때 안 먹어서 바꿈
+					blurpath = image_file.replace('clean', 'blur_'+self.blur_method)
+					# assert len(path)+len(self.blur_method) == len(blurpath), 'You should create data directory properly'
+					cv2.imwrite(blurpath, blurred)
 					
-					dict_for_label['filename'] += [os.path.join(blurpath, os.path.basename(image_file))]
+					# dict_for_label['filename'] += [os.path.join(blurpath, os.path.basename(image_file))]
+					dict_for_label['filename'] += [blurpath]
 
 					if callable(metric):
 						dict_for_label[calc].append(metric(image, blurred))
 					elif metric == 'degree':
 						dict_for_label[calc].append(degree)
 					elif metric == 'cosine':
-						emb_clean = resnet(torch.Tensor(image).permute(2, 0, 1).unsqueeze(0)).squeeze(0).detach().numpy()
-						emb_blur = resnet(torch.Tensor(blurred).permute(2, 0, 1).unsqueeze(0)).squeeze(0).detach().numpy()
+						# [8/21] : CUDA / CPU both available
+						clean_tensor = torch.Tensor(image).permute(2, 0, 1).unsqueeze(0)
+						blur_tensor = torch.Tensor(blurred).permute(2, 0, 1).unsqueeze(0)
+						emb_clean = resnet(clean_tensor if self.device is 'cpu' else clean_tensor.to(self.device))
+						emb_blur = resnet(blur_tensor if self.device is 'cpu' else blur_tensor.to(self.device))
+						emb_clean = emb_clean.squeeze(0).detach().numpy() if self.device is 'cpu' else emb_clean.cpu().squeeze(0).detach().numpy()
+						emb_blur = emb_blur.squeeze(0).detach().numpy() if self.device is 'cpu' else emb_blur.cpu().squeeze(0).detach().numpy()
 						cosine = np.dot(emb_clean, emb_blur)/(np.linalg.norm(emb_clean)*np.linalg.norm(emb_blur))
 						dict_for_label[calc].append(1-cosine)
 
@@ -191,6 +209,7 @@ class CreateBlurImg:
 			pass
 
 		if label:
+			print(dict_for_label)
 			save_dir = ".."+os.path.sep+os.path.join('data', f"label_blur_{self.blur_method}", 'label')
 			os.makedirs(save_dir, exist_ok=True)
 			df = pd.DataFrame(dict_for_label)
@@ -199,11 +218,13 @@ class CreateBlurImg:
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='This program creates blur images.')
 	parser.add_argument('--blur', type=str, help='defocus, deblurGAN is available', default='defocus')
-	parser.add_argument('--save', type=bool, help='option to save blurred images', default='True')
-	parser.add_argument('--label', type=bool, help='option to create labels', default='True')
+	parser.add_argument('--save', action='store_true', help='option to save blurred images')
+	parser.add_argument('--label', action='store_true', help='option to create labels')
 	parser.add_argument('--calc', type=str, help='option to make label(metrics), psnr, ssim, degree, cosine is available', default='psnr')
-	parser.add_argument('--scrfd', type=bool, help='Apply scrfd crop and align on the image', default=False)
+	parser.add_argument('--scrfd', action='store_true', help='Apply scrfd crop and align on the image')
+	parser.add_argument('--root', type=str, help='Clean Image folder directory path', default='../data')
+	parser.add_argument('--device', type=str, help='Use CUDA or Not', default='')	# CPU: '' // CUDA: 'cuda:0'
 	args = parser.parse_args()
 
-	blurrer = CreateBlurImg(".."+os.path.sep+"data", args.blur)
+	blurrer = CreateBlurImg(args.root, args.blur, device=None if args.device =='' else args.device)
 	blurrer.generate_blur_images(args.save, args.label, args.calc, args.scrfd)

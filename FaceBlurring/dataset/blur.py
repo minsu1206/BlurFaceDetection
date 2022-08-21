@@ -12,11 +12,12 @@ def blurring(img, param, random_method='uniform'):
     '''
     mean, var, dmin, dmax = param['mean'], param['var'], param['dmin'], param['dmax']
     # Create random degree and random angle with parameters
-    if random_method == 'uniform':
+    # [8/21] : uniform / gaussian 둘이 바뀌어있었음
+    if random_method == 'gaussian':
         random_degree = dmax + 1
         while random_degree < dmin or random_degree > dmax:
             random_degree = int(random.normalvariate(mean, var))
-    elif random_method == 'gaussian':
+    elif random_method == 'uniform':
         random_degree = random.randint(dmin, dmax)
     else:
         raise ValueError("This metric is not available(choose from uniform, gaussian)")
