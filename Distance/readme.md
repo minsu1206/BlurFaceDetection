@@ -157,7 +157,7 @@ $$ L_1(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \left| e_i - \epsilon_i^j \right|
 
 $$ L_2(j)^{avg} = \frac{1}{30} \sqrt{\sum_{i=0}^{29} \left( e_i-\epsilon_i^j \right)^2} $$
 
-$$ \text{Similarity}(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \left( \frac{\left| e_i \cdot \epsilon_i^j \right| }{ \left| e_i \right| \times \left| \epsilon_i^j \right| } \right) $$
+$$ \text{Similarity}(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \left( \frac{|e_i \cdot \epsilon_i^j|}{ |e_i|\times |\epsilon_i^j|} \right) $$
 
 for reference face embedding $e_i = g(r_i)$ from face recognition model $g(\cdot)$ inference on reference face image $r_i$.
 and blurred face embedding $\epsilon_i^j = g(b_i^j)$ from face recognition model inference on blurred face image $k_j * r_i$ with $j^{th}$ blur kernel $k_j$.
@@ -190,10 +190,10 @@ cos_mean /= look_upto
 ---
 # 5. Visualize results
 ## (1) Average distances and similarity for samples generated with random $\theta$.
-<p align="center"><img src='./results/random_L1L2COS.png', width="550">
+<p align="center"><img src='./results/random_L1L2COS.png', width="500">
 
 ## (2) Average distances and similarity for samples generated with fixed $\theta$.
-<p align="center"><img src='./results/fix_L1L2COS.png', width="550">
+<p align="center"><img src='./results/fix_L1L2COS.png', width="500">
 
 ---
 # 6. Additional test

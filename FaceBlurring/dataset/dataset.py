@@ -103,3 +103,33 @@ class FaceDataset(Dataset):
 			image = self.transform(image).float()
 
 		return image, torch.from_numpy(np.asarray(label))
+
+
+class FaceDataset_CSV(Dataset):
+    def __init__(self, csv_file, metric='cosine', transform=None, input_size=None):
+	# 라벨(CSV) 파일이 있는 경우 굳이 폴더를 서칭하면서 이미지를 가져올 필요가 없음. 라벨을 만들고 나서는 이 방법이 더 좋은 것 같습니다
+        self.path_n_label = pd.DataFrame.to_dict(pd.read_csv(csv_file))
+        self.metric = metric
+        assert metric in self.path_n_label.keys(), 'Not available metric, you have to create label'
+        self.transform = transform
+        
+        if input_size is None:
+            self.input_size = 1024
+        else:
+            self.input_size = input_size
+
+
+    def __len__(self):
+        return len(self.path_n_label['filename'])
+
+    def __getitem__(self, idx):
+        img_path, label = self.path_n_label['filename'][idx], self.path_n_label[self.metric][idx]
+        image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+        image = cv2.resize(image,
+                           (self.input_size, self.input_size),
+                           interpolation=cv2.INTER_AREA)
+        if self.transform:
+            image = self.transform(image).float()
+
+        return image, 100*torch.from_numpy(np.asarray(label)).float()
+

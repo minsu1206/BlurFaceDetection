@@ -6,6 +6,7 @@ from utils import *
 from insightface.app import FaceAnalysis
 from facenet_pytorch import InceptionResnetV1
 import torch
+import torch.nn.functional as F
 
 class CreateBlurImg:
 	'''
@@ -145,9 +146,7 @@ class CreateBlurImg:
 						blur_tensor = torch.Tensor(blurred).permute(2, 0, 1).unsqueeze(0)
 						emb_clean = resnet(clean_tensor if self.device is 'cpu' else clean_tensor.to(self.device))
 						emb_blur = resnet(blur_tensor if self.device is 'cpu' else blur_tensor.to(self.device))
-						emb_clean = emb_clean.squeeze(0).detach().numpy() if self.device is 'cpu' else emb_clean.cpu().squeeze(0).detach().numpy()
-						emb_blur = emb_blur.squeeze(0).detach().numpy() if self.device is 'cpu' else emb_blur.cpu().squeeze(0).detach().numpy()
-						cosine = np.dot(emb_clean, emb_blur)/(np.linalg.norm(emb_clean)*np.linalg.norm(emb_blur))
+						cosine = F.cosine_similarity(emb_clean, emb_blur, 1).item()
 						dict_for_label[calc].append(1-cosine)
 
 				elif save:
@@ -187,9 +186,12 @@ class CreateBlurImg:
 					elif metric == 'degree':
 						dict_for_label[calc].append(mag)
 					elif metric == 'cosine':
-						emb_clean = resnet(torch.Tensor(image).permute(2, 0, 1).unsqueeze(0)).squeeze(0).detach().numpy()
-						emb_blur = resnet(torch.Tensor(blurred).permute(2, 0, 1).unsqueeze(0)).squeeze(0).detach().numpy()
-						cosine = np.dot(emb_clean, emb_blur)/(np.linalg.norm(emb_clean)*np.linalg.norm(emb_blur))
+						# [8/21] : CUDA / CPU both available
+						clean_tensor = torch.Tensor(image).permute(2, 0, 1).unsqueeze(0)
+						blur_tensor = torch.Tensor(blurred).permute(2, 0, 1).unsqueeze(0)
+						emb_clean = resnet(clean_tensor if self.device is 'cpu' else clean_tensor.to(self.device))
+						emb_blur = resnet(blur_tensor if self.device is 'cpu' else blur_tensor.to(self.device))
+						cosine = F.cosine_similarity(emb_clean, emb_blur, 1).item()
 						dict_for_label[calc].append(1-cosine)
 
 				elif save:
