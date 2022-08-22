@@ -1,7 +1,6 @@
-from operator import mod
 import torch
-from mobilenet import *
-from resnet import *
+from models.mobilenet import *
+from models.resnet import *
 
 def model_build(model_name:str, num_classes:int):
     """

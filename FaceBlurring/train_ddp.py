@@ -21,7 +21,7 @@ from pytorch_lightning.plugins import DDPPlugin
 
 
 class FaceBlur(pl.LightningModule):
-	def __init__(self, cfg, args):
+	def __init__(self, cfg, args, resume):
 		super().__init__()
 		self.cfg = cfg
 		self.model = model_build(model_name=cfg['train']['model'], num_classes=1)
@@ -29,12 +29,14 @@ class FaceBlur(pl.LightningModule):
 		self.loss_group = {}
 		self._build_loss()
 		self.checkpoint_path = args.save
-		
-	
+		self.resume = resume
+		if self.resume != None:
+			self.model.load_state_dict(self.resume['model'])	# FIXME : debugging NOT YET
+
 	def _build_loss(self):
 		keys = list(self.cfg['train']['loss'].keys())
 
-		if 'MSE' in keys():
+		if 'MSE' in keys:
 			self.MSE = nn.MSELoss()
 			self.loss_group['MSE'] = self.MSE
 		
@@ -123,14 +125,14 @@ class FaceBlur(pl.LightningModule):
 def train(cfg, args):
 
 	now = datetime.datetime.now().strftime("%m_%d_%H")
-	checkpoint_path = os.path.join(args.save_dir, args.config, now)
+	checkpoint_path = os.path.join(args.save, args.config, now)
 	log_dir = os.path.join(checkpoint_path, 'log')
 	os.makedirs(log_dir, exist_ok=True)
 	logger = TensorBoardLogger(log_dir)
 	
 	dataset = FaceDataset(
-		cfg['dataset']['txt_path'], 
-		transform=torchvision.transforms.Compose([torchvision.ToTensor()])
+		label_path=cfg['dataset']['csv_path'],	data_root=cfg['dataset']['img_root'],
+		transform=torchvision.transforms.Compose([torchvision.transforms.ToTensor(), torchvision.transforms.Resize(224)]), input_size=512
 	)
 
 	dataset_size = len(dataset)
@@ -147,7 +149,10 @@ def train(cfg, args):
 	train_dataloader = DataLoader(train_dataset, batch_size=batch, shuffle=True, num_workers=num_workers)
 	val_dataloader = DataLoader(val_dataset, batch_size=batch, shuffle=False, num_workers=num_workers)
 
-	model = FaceBlur(cfg, args)
+	resume = None
+	if args.resume != '':
+		resume = torch.load(args.resume)
+	model = FaceBlur(cfg, args, resume)
 
 	# Checkpoint callback
 	checkpoint_callback = pl.callbacks.ModelCheckpoint(
@@ -162,14 +167,14 @@ def train(cfg, args):
 
 	if args.earlystop:
 		callbacks.append(EarlyStopping(monitor='val_loss', mode='min', patience=7))
-	
+
 	if len(devices) > 1:
 		trainer = pl.Trainer(
 			callbacks=callbacks,
 			accelerator="gpu",
 			gpus=devices,
 			logger=logger,
-			max_epochs=cfg['train']['epoch'],
+			max_epochs=cfg['train']['epochs'],
 			log_every_n_steps=1,
 			plugins=DDPPlugin(find_unused_parameters=False),
 			resume_from_checkpoint = args.resume if '.ckpt' in args.resume else None
@@ -181,7 +186,7 @@ def train(cfg, args):
 			accelerator="gpu",
 			gpus=devices,
 			logger=logger,
-			max_epochs=cfg['train']['epoch'],
+			max_epochs=cfg['train']['epochs'],
 			log_every_n_steps=1,
 			resume_from_checkpoint = args.resume if '.ckpt' in args.resume else None
 		)
@@ -193,7 +198,7 @@ def train(cfg, args):
 
 def select_device(device):
 	visible_gpu = []
-	if device < 0:
+	if isinstance(device, int) and device < 0:
 		return 'cpu'
 	
 	if isinstance(device, list):
@@ -223,9 +228,11 @@ def build_optim(cfg, model):
 	lr = cfg['train']['lr']
 
 	if optim == 'sgd':
+		print("Optimizer :: SGD")
 		return torch.optim.SGD(model.parameters(), lr=lr)
 	
 	if optim == 'adam':
+		print("Optimizer :: Adam")
 		return torch.optim.Adam(model.parameters(), lr=lr)
 	
 	# TODO : add optimizer
@@ -234,13 +241,15 @@ def build_optim(cfg, model):
 def build_scheduler(cfg, optim):
 
 	scheduler_dict = cfg['train']['scheduler']
-	scheduler, spec = scheduler_dict.items()
+	scheduler, spec = list(scheduler_dict.items())[0]
 	scheduler = scheduler.lower()
 	
-	if scheduler == 'multistep':
+	if scheduler == 'multisteplr':
+		print("Scheduler :: MultiStepLR")
 		return torch.optim.lr_scheduler.MultiStepLR(optim, milestones=[spec["milestones"]], gamma=spec["decay"])
 
-	if scheduler == 'cyclic':
+	if scheduler == 'cycliclr':
+		print("Scheduler :: CyclicLR")
 		return torch.optim.lr_scheduler.CyclicLR(optim, base_lr=spec["base_lr"], max_lr=spec["max_lr"])
 	
 	# TODO : add leraning rate scheduler
@@ -258,9 +267,10 @@ if __name__ == "__main__":
 	parser.add_argument('--batch', type=int, default=-1)
 	parser.add_argument('--device', type=int, nargs='+', default=-1)
 	parser.add_argument('--resume', type=str, default='')
+	parser.add_argument('--earlystop', action='store_true')
 	args = parser.parse_args()
 
-	with open(args.config, 'r') as f:
+	with open(f'config/{args.config}.yaml', 'r') as f:
 		cfg = yaml.safe_load(f)
 	
 	train(cfg, args)

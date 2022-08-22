@@ -91,6 +91,8 @@ def crop_n_align(app, img):
     faces = app.get(img)
     find = (len(faces) != 0)
     if find:
+        # TODO
+        # FIXME : face 가 여러개일때 처리해야 함
         kpss = faces[0]['kps']
         image = norm_crop(img, kpss, arcface_src, image_size=1024)
 
