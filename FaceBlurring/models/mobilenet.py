@@ -104,7 +104,7 @@ class FaceMobileNetV2(nn.Module):
     def forward(self, x):
         x = self.features(x)
         x = x.mean(3).mean(2) #Global average pooling
-        x = torch.sigmoid(self.regressor(x))
+        x = 50*(1+torch.tanh(self.regressor(x)))
         return x
 
     def _initialize_weights(self):
