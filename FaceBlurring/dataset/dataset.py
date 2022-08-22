@@ -42,7 +42,7 @@ class FaceDataset(Dataset):
 			Inner function to get all clean samples under sample root
 			This function only return clean images
 		'''
-		paths = []법
+		paths = []
 		for root in roots:
 			for (path, directory, files) in os.walk(root):
 				for filename in files:
