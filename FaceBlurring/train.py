@@ -12,15 +12,6 @@ from models.model_factory import model_build
 import torchvision
 
 # TODO : Pytorch Lightning Wrapping -> Multi GPU
-
-def log_progress(epoch, num_epoch, iteration, num_data, batch_size, loss):
-    progress = int(iteration/(num_data // batch_size)*100//4)
-    print(
-        f"Epoch : {epoch}/{num_epoch} >>>> train : {iteration}/{num_data // batch_size}{iteration / (num_data//batch_size) * 100:.2f}"
-        + '=' * progress + '>' + ' ' * (25 - progress) + f") loss : {loss: .6f}", end='\r')
-
-
-
 def train(cfg, args):
 
 	##############################
@@ -102,7 +93,8 @@ def train(cfg, args):
 			training_loss += loss.item()
 			loss.backward()
 			optimizer.step()
-			log_progress(epoch, epochs, i, len(train_dataloader), batch, training_loss/(i+1))
+			if i % (len(train_dataloader)//10) == 0:
+				print(f"Epoch #{epoch} [{i}/{len(train_dataloader)}] >>>>>>>> Training loss : {training_loss/(i+1):.6f}")
 		history["T_loss"].append(training_loss/len(train_dataloader))
 
 		if epoch and epoch % val_epoch == 0:
