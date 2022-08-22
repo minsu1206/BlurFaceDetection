@@ -190,10 +190,10 @@ cos_mean /= look_upto
 ---
 # 5. Visualize results
 ## (1) Average distances and similarity for samples generated with random $\theta$.
-<p align="center"><img src='./results/random_L1L2COS.png', width="550">
+<p align="center"><img src='./results/random_L1L2COS.png', width="500">
 
 ## (2) Average distances and similarity for samples generated with fixed $\theta$.
-<p align="center"><img src='./results/fix_L1L2COS.png', width="550">
+<p align="center"><img src='./results/fix_L1L2COS.png', width="500">
 
 ---
 # 6. Additional test
