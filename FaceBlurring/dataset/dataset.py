@@ -116,5 +116,5 @@ class FaceDataset_CSV(Dataset):
         if self.transform:
             image = self.transform(image).float()
 
-        return image, torch.from_numpy(np.asarray(label)).float()
+        return image, 100*torch.from_numpy(np.asarray(label)).float()
 
