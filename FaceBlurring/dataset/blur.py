@@ -273,7 +273,7 @@ class BlurImage(object):
 
 #changed for image input
 class BlurringImage(object):
-        def __init__(self, image, PSFs=None, part=None, scrfd=False, app=None):
+    def __init__(self, image, PSFs=None, part=None, scrfd=False, app=None):
             """
         :param PSFs: array of Kernels.
         :param part: int number of kernel to use.
