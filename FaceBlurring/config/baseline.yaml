@@ -1,0 +1,17 @@
+exp_name: sample
+dataset:
+  batch: 32
+  csv_path: 'data/label_blur_defocus/label/label.csv'
+  img_root: 'C:\Users\user\PycharmProjects\dino_lib22\BlurFaceData\blur_defocus'
+  num_workers: 1
+train:
+  model: 'resnet50'
+  lr: 0.001
+  epochs: 100
+  val_epoch: 1
+  loss: {'MSE': 1}
+  optim: 'Adam'
+  scheduler: {'MultiStepLR': {"milestones": 50, "decay": 0.1}}
+
+  #
+

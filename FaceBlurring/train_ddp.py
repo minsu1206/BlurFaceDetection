@@ -19,7 +19,7 @@ from pytorch_lightning.plugins import DDPPlugin
 
 # TODO : Pytorch Lightning Wrapping -> Multi GPU
 
-
+##
 class FaceBlur(pl.LightningModule):
 	def __init__(self, cfg, args, resume):
 		super().__init__()
@@ -44,6 +44,7 @@ class FaceBlur(pl.LightningModule):
 
 	def forward(self, x):
 		y = self.model(x)
+		# y = torch.sigmoid(y)
 		return y
 	
 	def compute_loss(self, x, y, validation=False):
@@ -91,9 +92,10 @@ class FaceBlur(pl.LightningModule):
 		x = x.float()
 		y = y.float()
 
-		pred = self.model(x)
+		pred = self.forward(x)
 
 		loss_dict = self.compute_loss(pred, y)
+		self.log('val_loss', loss_dict['MSE'])
 		return loss_dict
 
 	
@@ -145,7 +147,7 @@ def train(cfg, args):
 
 	devices = select_device(args.device)
 
-	num_workers = os.cpu_count() / len(args.device) if cfg['dataset']['num_workers'] == -1 else cfg['dataset']['num_workers']
+	num_workers = int(os.cpu_count() / len(args.device)) if cfg['dataset']['num_workers'] == -1 else cfg['dataset']['num_workers']
 	train_dataloader = DataLoader(train_dataset, batch_size=batch, shuffle=True, num_workers=num_workers)
 	val_dataloader = DataLoader(val_dataset, batch_size=batch, shuffle=False, num_workers=num_workers)
 
