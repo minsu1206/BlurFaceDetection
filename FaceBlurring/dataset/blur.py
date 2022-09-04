@@ -181,7 +181,9 @@ class BlurImage(object):
         :param PSFs: array of Kernels.
         :param part: int number of kernel to use.
         """
-        if app is None:
+        # FIXME : [9/3 KMS]
+        # if app is None:
+        if scrfd:
             app = FaceAnalysis(allowed_modules=['detection'],
                                providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
             app.prepare(ctx_id=0, det_size=(640, 640))
@@ -267,8 +269,8 @@ class BlurImage(object):
             result.append(np.abs(blured))
 
         self.result = np.array(result[0]*255, dtype=np.uint8)
-        self.original = self._center_crop(self.original, dst_size=1024)
-        self.result = self._center_crop(self.result, dst_size=1024)
+        self.original = self._center_crop(self.original, dst_size=512)
+        self.result = self._center_crop(self.result, dst_size=512)
         return self.original, self.result
     
 #minor revision on BlurImage for image files
@@ -278,11 +280,12 @@ class BlurringImage(object):
         :param PSFs: array of Kernels.
         :param part: int number of kernel to use.
         """
-        if app is None:
+        # FIXME : [9/3 KMS]
+        # if app is None:
+        if scrfd:
             app = FaceAnalysis(allowed_modules=['detection'],
                                providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
             app.prepare(ctx_id=0, det_size=(640, 640))
-
 
         self.original = image
 
@@ -360,6 +363,6 @@ class BlurringImage(object):
             result.append(np.abs(blured))
 
         self.result = np.array(result[0]*255, dtype=np.uint8)
-        self.original = self._center_crop(self.original, dst_size=1024)
-        self.result = self._center_crop(self.result, dst_size=1024)
+        self.original = self._center_crop(self.original, dst_size=512)
+        self.result = self._center_crop(self.result, dst_size=512)
         return self.original, self.result
