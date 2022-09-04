@@ -163,7 +163,12 @@ class CreateBlurImages:
         if scrfd:
             app = FaceAnalysis(allowed_modules=['detection'], providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
             app.prepare(ctx_id=0, det_size=(640, 640))
+        
         print('Generate blur images...')
+        print("===================")
+        print(f"Method : {self.blur_method}\nSCRFD : {scrfd}\nn_samples : {num_samples}\nbatch : {batch}")
+        print("===================")
+
         resnet = InceptionResnetV1(pretrained='vggface2', device='cuda' if torch.cuda.is_available() else 'cpu').eval()
         dict_for_label = {'filename': [], 'cosine': []}
         label_batch, clean_img_tensor, blur_img_tensor = 0, [], []
@@ -226,8 +231,8 @@ class CreateBlurImages:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='This program creates blur images.')
-    parser.add_argument('--blur', type=str, help='defocus, deblurGAN, random is available', default='defocus')
-    parser.add_argument('--scrfd', type=bool, help='Apply scrfd crop and align on the image', default=True)
+    parser.add_argument('--blur', type=str, help='defocus, deblurGAN, random is available', default='random')
+    parser.add_argument('--scrfd', type=bool, help='Apply scrfd crop and align on the image', default=False)
     parser.add_argument('--iter', type=int, help="Number of samples to generate blur images", default=1)
     parser.add_argument('--update', type=str, help='update exist filter file(a to add, r to revise)', default='')
     parser.add_argument('--batch', type=int, help="Batch size of labeling", default=1)
