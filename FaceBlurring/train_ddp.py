@@ -9,6 +9,7 @@ import datetime
 import yaml
 import argparse
 from models.model_factory import model_build
+from loss import PerceptualLoss, GANLoss, MultiscaleRecLoss
 import torchvision
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -40,12 +41,27 @@ class FaceBlur(pl.LightningModule):
 			self.MSE = nn.MSELoss()
 			self.loss_group['MSE'] = self.MSE
 		
-		# TODO : add loss functions
+		# [9/4 - KMS]
+		if 'UEGAN_LOSS' in keys:
+			self.PERCEPTUAL = PerceptualLoss()
+			self.loss_group['GEN_Loss'] = self.PERCEPTUAL
+			self.GANLoss = GANLoss()
+			self.loss_group['GAN_Loss'] = self.GAN_Loss
+			self.MultiRec = MultiscaleRecLoss()
+			self.loss_group['DIS_Loss'] = self.MultiscaleRecLoss
+
+		if 'L1' in keys:
+			self.loss_group['L1_Loss'] = nn.L1Loss()
 
 	def forward(self, x):
 		y = self.model(x)
 		return y
 	
+	# [9/4 - KMS]
+	def forward_GAN(self, x):
+		generated_clean, correction_maps = self.model(x)
+		return generated_clean, correction_maps
+
 	def compute_loss(self, x, y, validation=False):
 		loss_dict = {"loss":0}
 
@@ -56,14 +72,22 @@ class FaceBlur(pl.LightningModule):
 		
 		return loss_dict
 
+	# [9/4 - KMS]
+	def compute_loss_GAN(self, x, y, validation=False):
+		loss_dict = {"loss":0}
+
 	def training_step(self, batch, batch_idx):
 		x, y = batch
 		x = x.float()       # image
 		y = y.float()       # blur label
 	
-		pred = self.forward(x)
+		if 'UEGAN' not in self.cfg['train']['loss'].keys():
+			pred = self.forward(x)
+			loss_dict = self.compute_loss(pred, y)
 
-		loss_dict = self.compute_loss(pred, y)
+		else:		# MODE : GAN based
+			# GAN forwarding
+			raise NotImplementedError()
 
 		for key, val in loss_dict.items():
 			self.log(f'train loss :: {key} : ', round(float(val.item()), 6),

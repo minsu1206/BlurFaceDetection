@@ -24,14 +24,7 @@ def model_build(model_name:str, num_classes:int):
         model = ResNet(block=ResidualBlock, num_block=[3, 4, 6, 3], num_classes=num_classes)
     if model_name == 'resnet50':
         model = ResNet(block=BottleNeckResidualBlock, num_block=[3, 4, 6, 3], num_classes=num_classes)
-
-
-    return model
-
-
-
-
-
-
-
+    if model_name == 'UEGAN':
+        model = UEGAN()
+        
     return model
