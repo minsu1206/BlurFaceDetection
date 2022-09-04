@@ -1,19 +1,30 @@
+import pdb
+
 import torch
 import os
 import pandas as pd
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
-
+import matplotlib.pyplot as plt
 class FaceDataset(Dataset):
-    def __init__(self, label_path, data_root, option='blur', method='defocus',
+    def __init__(self, data_root, option='blur', method='defocus',
                  transform=None, input_size=None, check=False):
+        '''
+            Dataset
+            Check csv file(be sure create label first)
+            data_root : Top directory of dataset
+            method : blur method
+            input_size : image input size
+            check : get all images from lower directory(boolean)
+        '''
 
-        assert method in ['defocus', 'deblurGAN'], "Not available method"
+        assert method in ['defocus', 'deblurGAN', 'random'], "Not available method"
         self.transform = transform
         self.method = method
         self.data_root = data_root
-        self.label_path = label_path
+        self.option = option
+        self.label_path = f'../data/label_blur_{method}/label/data_label.csv'
 
         if check:
             if option == 'clean':
@@ -23,12 +34,35 @@ class FaceDataset(Dataset):
             elif option == 'blur':
                 self.sample_paths, self.labels = self._get_blur_samples()
 
+            elif option == 'both':
+                self.blur_paths, self.blur_labels = self._get_blur_samples()
+                self.clean_paths = self._get_clean_samples()
+                self.clean_labels = np.zeros(len(self.sample_paths))
+
             else:
-                raise ValueError("option should be 'clean' or 'blur'")
+                raise ValueError("option should be 'clean' or 'blur' or 'both'.")
         else:
-            df = pd.read_csv(self.label_path)
-            self.sample_paths = df['filename']
-            self.labels = df['cosine']
+            if os.path.isfile(self.label_path):
+                if option == 'clean':
+                    df = pd.read_csv(self.label_path)
+                    self.sample_paths = df['filename'].replace('blur_defocus', 'clean', regex=True)
+                    self.labels = np.zeros(len(self.sample_paths))
+
+                elif option == 'blur':
+                    df = pd.read_csv(self.label_path)
+                    self.sample_paths = df['filename']
+                    self.labels = df['cosine']
+
+                elif option == 'both':
+                    df = pd.read_csv(self.label_path)
+                    self.clean_paths = df['filename'].replace('blur_defocus', 'clean', regex=True)
+                    self.clean_labels = np.zeros(len(self.clean_paths))
+                    self.blur_paths = df['filename']
+                    self.blur_labels = df['cosine']
+                    pdb.set_trace()
+
+            else:
+                raise ValueError("Create label first(run create_blur_image.py first)")
 
         if input_size is None:
             self.input_size = 1024
@@ -71,17 +105,44 @@ class FaceDataset(Dataset):
         return len(self.sample_paths)
 
     def __getitem__(self, idx):
-        img_path, label = self.sample_paths[idx], self.labels[idx]
-        try:
-            image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+        if self.option != 'both':
+            img_path, label = self.sample_paths[idx], self.labels[idx]
+            try:
+                image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
 
-        except:
-            print(img_path, ': corrupted')
-            img_path, label = self.sample_paths[idx + 1], self.labels[idx + 1]
-            image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+            except:
+                print(img_path, ': corrupted')
+                img_path, label = self.sample_paths[idx + 1], self.labels[idx + 1]
+                image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
 
-        image = cv2.resize(image, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
-        if self.transform:
-            image = self.transform(image).float()
+            image = cv2.resize(image, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+            if self.transform:
+                image = self.transform(image).float()
 
-        return image, torch.from_numpy(np.asarray(label))
+            return image, torch.from_numpy(np.asarray(label))
+
+        else:
+            clean_pth, clean_lb = self.clean_paths[idx], self.clean_labels[idx]
+            blur_pth, blur_lb = self.blur_paths[idx], self.blur_labels[idx]
+            try:
+                clean = cv2.cvtColor(cv2.imread(clean_pth), cv2.COLOR_BGR2RGB)
+                blur = cv2.cvtColor(cv2.imread(blur_pth), cv2.COLOR_BGR2RGB)
+
+            except:
+                clean_pth, clean_lb = self.clean_paths[idx+1], self.clean_labels[idx+1]
+                blur_pth, blur_lb = self.blur_paths[idx+1], self.blur_labels[idx+1]
+                clean = cv2.cvtColor(cv2.imread(clean_pth), cv2.COLOR_BGR2RGB)
+                blur = cv2.cvtColor(cv2.imread(blur_pth), cv2.COLOR_BGR2RGB)
+
+            clean = cv2.resize(clean, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+            blur = cv2.resize(blur, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+
+            if self.transform:
+                clean = self.transform(clean).float()
+                blur = self.transform(blur).float()
+
+            image = {'clean' : clean, 'blur' : blur}
+            label = {'clean': torch.from_numpy(np.asarray(clean_lb)),
+                     'blur': torch.from_numpy(np.asarray(blur_lb))}
+
+            return image, label
