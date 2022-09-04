@@ -1,33 +1,25 @@
-import os
-import sys
-sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 import argparse
 
 import yaml
 import cv2
 import numpy as np
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, random_split
-# from models.mobilenet import FaceMobileNet
-# import pytorch_model_summary
 from insightface.app import FaceAnalysis
 
-from dataset.dataset import FaceDataset
 from models.model_factory import model_build
-import pytorch_lightning as pl
+from dataset.dataset import FaceDataset
 from dataset.blur import crop_n_align
-
-
-# def log_progress(epoch, num_epoch, iteration, num_data, batch_size, loss):
-#     progress = int(iteration/(num_data // batch_size)*100//4)
-#     print(
-#         f"Epoch : {epoch}/{num_epoch} >>>> train : {iteration}/{num_data // batch_size}{iteration / (num_data//batch_size) * 100:.2f}"
-#         + '=' * progress + '>' + ' ' * (25 - progress) + f") loss : {loss: .6f}", end='\r')
-
-
+import pytorch_lightning as pl
 
 def test(cfg, args, mode):
+    '''
+    Test code for face blur detection
+    
+    Args:
+        cfg: configuration file of yaml format
+        args
+        mode: inference mode. it can be "video" or "image"
+    '''
 
 
     ##############################
@@ -53,56 +45,62 @@ def test(cfg, args, mode):
 
 
     if mode == 'video':
-        save_path = args.save_path
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter(save_path, fourcc, 25.0, (640,480))
-
         video_path = args.file_path
         cap = cv2.VideoCapture(video_path)
         width  = cap.get(3) # width
         height = cap.get(4) # height
 
+        save_path = args.save_path
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        out = cv2.VideoWriter(save_path, fourcc, 25.0, (640,480))
+
+        # for face detection
         app = FaceAnalysis(allowed_modules=['detection'],
                                 providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
         app.prepare(ctx_id=0, det_size=(640, 640))
 
         while(cap.isOpened()):
-            ret, frame = cap.read()
+            _, frame = cap.read()
 
             pad = 0
             find = False
-
 
             while not find and pad <= 200:
                 padded = np.pad(frame, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
                 face_image, find, faces = crop_n_align(app, padded, box=True)
                 pad += 50
 
-                if find:
-                    blur_label = f'{model(face_image):.2f}'
-                else:
-                    blur_label = 'Face not found'
+            if find:
+                blur_label = f'{model(face_image):.2f}' # predict blur label
+            else:
+                blur_label = 'Face not found'
 
-            font                   = cv2.FONT_HERSHEY_SIMPLEX
+            if len(faces) != 0:
+                bbox = faces[0]['bbox']
+                left_top = (int(bbox[0]-pad//2), int(bbox[1]-pad//2))
+                right_btm = (int(bbox[2]-pad//2), int(bbox[3]-pad//2))
+                red_color = (0, 0, 255)
+                thickness = 3
+                cv2.rectangle(frame, left_top, right_btm, red_color, thickness)
+
             if blur_label == 'Face not found':
                 TextPosition = (int(width*0.4), int(height*0.9))
             else:
                 TextPosition = (int(width*0.45), int(height*0.9))
-            fontScale              = 1
-            fontColor              = (255,255,255)
-            thickness              = 2
-            lineType               = 2
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            fontScale = 1
+            fontColor = (255,255,255)
+            thickness = 2
+            lineType = 2
 
-            cv2.putText(frame,blur_label, 
+            cv2.putText(frame, blur_label, 
                 TextPosition, 
                 font, 
                 fontScale,
                 fontColor,
                 thickness,
                 lineType)
-            if len(faces) != 0:
-                bbox = faces[0]['bbox']
-                cv2.rectangle(frame, (int(bbox[0]-pad//2), int(bbox[1]-pad//2)), (int(bbox[2]-pad//2), int(bbox[3]-pad//2)), (0, 0, 255), 3)
+            
             out.write(frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -111,7 +109,6 @@ def test(cfg, args, mode):
         cap.release()
         out.release()
         cv2.destroyAllWindows()
-
 
 
     ##############################
@@ -130,7 +127,6 @@ def test(cfg, args, mode):
         pad = 0
         find = False
 
-
         while not find and pad <= 200:
             padded = np.pad(frame, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
             face_image, find, faces = crop_n_align(app, padded, box=True)
@@ -141,11 +137,19 @@ def test(cfg, args, mode):
             else:
                 blur_label = 'Face not found'
 
-        font = cv2.FONT_HERSHEY_SIMPLEX
+        if len(faces) != 0:
+            bbox = faces[0]['bbox']
+            left_top = (int(bbox[0]-pad//2), int(bbox[1]-pad//2))
+            right_btm = (int(bbox[2]-pad//2), int(bbox[3]-pad//2))
+            red_color = (0, 0, 255)
+            thickness = 3
+            cv2.rectangle(frame, left_top, right_btm, red_color, thickness)
+
         if blur_label == 'Face not found':
             TextPosition = (int(width*0.4), int(height*0.9))
         else:
             TextPosition = (int(width*0.45), int(height*0.9))
+        font = cv2.FONT_HERSHEY_SIMPLEX
         fontScale              = 1
         fontColor              = (255,255,255)
         thickness              = 2
@@ -158,16 +162,10 @@ def test(cfg, args, mode):
             fontColor,
             thickness,
             lineType)
-        if len(faces) != 0:
-            bbox = faces[0]['bbox']
-            cv2.rectangle(frame, (int(bbox[0]-pad//2), int(bbox[1]-pad//2)), (int(bbox[2]-pad//2), int(bbox[3]-pad//2)), (0, 0, 255), 3)
         cv2.imshow('blur image', frame)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     
-
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
