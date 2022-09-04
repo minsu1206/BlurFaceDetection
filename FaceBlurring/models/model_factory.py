@@ -16,7 +16,7 @@ def model_build(model_name:str, num_classes:int):
     ######      build model     ######
     # define class or def for building model at each [@ Net].py
     # just add if ~ : ~ code for another model like below.
-
+    #
 
     if model_name == 'resnet18':
         model = ResNet(block=ResidualBlock, num_block=[2, 2, 2, 2], num_classes=num_classes)

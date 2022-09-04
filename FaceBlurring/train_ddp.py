@@ -1,40 +1,59 @@
 import os
+import argparse
+import datetime
+
+import yaml
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
+import torchvision
+
 from dataset.dataset import FaceDataset
-import datetime
-# from models.mobilenet import FaceMobileNet
-# import pytorch_model_summary
-import yaml
-import argparse
 from models.model_factory import model_build
 from loss import PerceptualLoss, GANLoss, MultiscaleRecLoss
 import torchvision
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-from tqdm import tqdm
 from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.plugins import DDPPlugin
 
 # TODO : Pytorch Lightning Wrapping -> Multi GPU
-
+# Written by KMS 
 
 class FaceBlur(pl.LightningModule):
+	'''
+	A model that predicts the degree of blurring of an image
+
+	Attributes:
+		cfg: configuration file
+		model: model that predicts the degree of blurring
+		loss_group: dictionary for containing loss function
+		resume: checkpoint where training info is stored
+
+	Methods:
+		_build_loss: add loss function to loss_group
+		forward: receive the image and return the degree of blur
+		compute_loss: calculate loss
+		training_step: receive training batch data and return loss
+		validation_step: receive validation batch data and return loss
+		configure_optimizers: build optimizer and learning rate scheduler
+	'''
 	def __init__(self, cfg, args, resume):
+		'''initialize loss function and model'''
 		super().__init__()
 		self.cfg = cfg
 		self.model = model_build(model_name=cfg['train']['model'], num_classes=1)
 
 		self.loss_group = {}
 		self._build_loss()
-		self.checkpoint_path = args.save
 		self.resume = resume
 		if self.resume != None:
 			self.model.load_state_dict(self.resume['model'])	# FIXME : debugging NOT YET
 
 	def _build_loss(self):
+		'''add loss function to loss_group'''
 		keys = list(self.cfg['train']['loss'].keys())
 
 		if 'MSE' in keys:
@@ -54,7 +73,17 @@ class FaceBlur(pl.LightningModule):
 			self.loss_group['L1_Loss'] = nn.L1Loss()
 
 	def forward(self, x):
+		'''
+		receive the image and return the degree of blur
+
+		Args:
+			x: images
+
+		Returns:
+			y: predicted blur labels
+		'''
 		y = self.model(x)
+		# y = torch.sigmoid(y)
 		return y
 	
 	# [9/4 - KMS]
@@ -63,6 +92,16 @@ class FaceBlur(pl.LightningModule):
 		return generated_clean, correction_maps
 
 	def compute_loss(self, x, y, validation=False):
+		'''
+		calculate the loss by receiving the predicted and target blur values
+
+		Args:
+			x: predicted blur labels
+			y: target blur labels
+
+		Returns:
+			loss_dict: dictionary which contains loss values
+		'''
 		loss_dict = {"loss":0}
 
 		for key, func in self.loss_group.items():
@@ -77,6 +116,15 @@ class FaceBlur(pl.LightningModule):
 		loss_dict = {"loss":0}
 
 	def training_step(self, batch, batch_idx):
+		'''
+		receive training training batch data and return loss
+
+		Args:
+			batch: batch which contains images and target blur values
+
+		Returns:
+			loss_dict: dictionary which contains loss values for input batch
+		'''
 		x, y = batch
 		x = x.float()       # image
 		y = y.float()       # blur label
@@ -110,14 +158,24 @@ class FaceBlur(pl.LightningModule):
 	# 		epoch_avg = val / len(outputs)
 	# 		print(f'Train Epoch Loss : {key} : ', round(float(epoch_avg), 6))
 
-	def validation_step(self, batch, batch_idx):
+	def validation_step(self, batch):
+		'''
+		receive validation validation batch data and return loss
+
+		Args:
+			batch: batch which contains images and target blur values
+
+		Returns:
+			loss_dict: dictionary which contains loss values for input batch
+		'''
 		x, y = batch
 		x = x.float()
 		y = y.float()
 
-		pred = self.model(x)
+		pred = self.forward(x)
 
 		loss_dict = self.compute_loss(pred, y)
+		self.log('val_loss', loss_dict['MSE'])
 		return loss_dict
 
 	
@@ -126,6 +184,11 @@ class FaceBlur(pl.LightningModule):
 	# 	raise NotImplementedError()
 
 	def configure_optimizers(self):
+		'''
+		build optimizer and learning rate scheduler
+
+		Returns: optimizer and learning rate scheduler		
+		'''
 		optim = build_optim(cfg, self.model)
 		scheduler = build_scheduler(cfg, optim)
 
@@ -144,16 +207,17 @@ class FaceBlur(pl.LightningModule):
 			}
 		]
 
-
-
 def train(cfg, args):
-
+	'''Function for training face blur detection model'''
 	now = datetime.datetime.now().strftime("%m_%d_%H")
-	checkpoint_path = os.path.join(args.save, args.config, now)
-	log_dir = os.path.join(checkpoint_path, 'log')
+	checkpoint_path = os.path.join(args.save, args.config, now) # path to save training information
+	log_dir = os.path.join(checkpoint_path, 'log') # path to save training log
 	os.makedirs(log_dir, exist_ok=True)
 	logger = TensorBoardLogger(log_dir)
 	
+	##############################
+	#       DataLoader           #
+	##############################
 	dataset = FaceDataset(
 		label_path=cfg['dataset']['csv_path'],	data_root=cfg['dataset']['img_root'],
 		transform=torchvision.transforms.Compose([torchvision.transforms.ToTensor(), torchvision.transforms.Resize(224)]), input_size=512
@@ -169,16 +233,22 @@ def train(cfg, args):
 
 	devices = select_device(args.device)
 
-	num_workers = os.cpu_count() / len(args.device) if cfg['dataset']['num_workers'] == -1 else cfg['dataset']['num_workers']
+	num_workers = int(os.cpu_count() / len(args.device)) if cfg['dataset']['num_workers'] == -1 else cfg['dataset']['num_workers']
 	train_dataloader = DataLoader(train_dataset, batch_size=batch, shuffle=True, num_workers=num_workers)
 	val_dataloader = DataLoader(val_dataset, batch_size=batch, shuffle=False, num_workers=num_workers)
 
+	##############################
+	#       BUILD MODEL          #
+	##############################
 	resume = None
 	if args.resume != '':
 		resume = torch.load(args.resume)
 	model = FaceBlur(cfg, args, resume)
 
-	# Checkpoint callback
+
+	##############################
+	#       Training SetUp       #
+	##############################
 	checkpoint_callback = pl.callbacks.ModelCheckpoint(
 		dirpath=args.save,
 		save_last=True,
@@ -215,12 +285,14 @@ def train(cfg, args):
 			resume_from_checkpoint = args.resume if '.ckpt' in args.resume else None
 		)
 
+
+	##############################
+	#       START TRAINING !!    #
+	##############################
 	trainer.fit(model, train_dataloader, val_dataloader)
 
-	pass
-
-
 def select_device(device):
+	'''Return device for training'''
 	visible_gpu = []
 	if isinstance(device, int) and device < 0:
 		return 'cpu'
@@ -233,20 +305,8 @@ def select_device(device):
 		visible_gpu = [device]
 	return visible_gpu
 
-
-def build_loss_func(cfg):
-	# Hmmmmmmmm
-	# MSE 외에 다른 loss를 쓰려나?
-
-	for loss_name, weight in cfg['train']['loss']:
-		pass
-	
-	# raise NotImplementedError()
-	return None
-
-
-
 def build_optim(cfg, model):
+	'''Return optimizer'''
 	optim = cfg['train']['optim']
 	optim = optim.lower()
 	lr = cfg['train']['lr']
@@ -261,9 +321,8 @@ def build_optim(cfg, model):
 	
 	# TODO : add optimizer
 
-
 def build_scheduler(cfg, optim):
-
+	'''Return learning rate scheduler'''
 	scheduler_dict = cfg['train']['scheduler']
 	scheduler, spec = list(scheduler_dict.items())[0]
 	scheduler = scheduler.lower()
@@ -279,19 +338,14 @@ def build_scheduler(cfg, optim):
 	# TODO : add leraning rate scheduler
 
 
-
-
-
-
-
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--config', type=str, default='')
-	parser.add_argument('--save', type=str, default='')
-	parser.add_argument('--batch', type=int, default=-1)
-	parser.add_argument('--device', type=int, nargs='+', default=-1)
-	parser.add_argument('--resume', type=str, default='')
-	parser.add_argument('--earlystop', action='store_true')
+	parser.add_argument('--config', type=str, default='./config/baseline.yaml', help='Path of configuration file')
+	parser.add_argument('--save', type=str, default='', help='Path to save the model')
+	parser.add_argument('--batch', type=int, default=-1, help='Batch size for training')
+	parser.add_argument('--device', type=int, nargs='+', default=-1, help='Specify gpu number for training')
+	parser.add_argument('--resume', type=str, default='', help='path to saved model')
+	parser.add_argument('--earlystop', action='store_true', help='Whether to proceed with early stopping or not')
 	args = parser.parse_args()
 
 	with open(f'config/{args.config}.yaml', 'r') as f:
