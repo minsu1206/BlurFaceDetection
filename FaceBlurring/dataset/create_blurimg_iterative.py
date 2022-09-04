@@ -7,8 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import cv2
-from facenet_pytorch import InceptionResnetV1
-
+import torch
+from facenet_pytorch import MTCNN, InceptionResnetV1
 from blur_iterative import iterative_blur_n
 
 def get_img_path(root_path):
@@ -26,10 +26,12 @@ def get_img_path(root_path):
         root = root.replace('\\', '/')
         if len(files) != 0:
             for img_path in files:
-                img_path_list.append(root + '/' + img_path)
+                filename, file_extension = os.path.splitext(img_path)
+                if file_extension in ['.jpg', '.png']:
+                    img_path_list.append(root + '/' + img_path)
     return img_path_list
 
-def save_iterative_blur_img(root_path, n):
+def save_iterative_blur_img(root_path, n, model, device):
     '''
     obtain blur images by applying the blur method several times
     and save iterative blur images and cossim
@@ -51,10 +53,13 @@ def save_iterative_blur_img(root_path, n):
             os.makedirs(blur_save_path, exist_ok=True)
 
     img_path_list = get_img_path(root_path)
+    #################################################
     for img_path in tqdm(img_path_list):
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-        clean_img, blur_img_list, cossim_list = iterative_blur_n(img, n, dsize, blur_method_list=['deblurGAN', 'defocus'])
+        clean_img, blur_img_list, cossim_list = iterative_blur_n(model, img, n, dsize, 
+        blur_method_list=['deblurGAN', 'defocus'], device=device)
 
+    #################################################
         clean_img_path = img_path.replace('sample_root', f'{dsize[0]}')
         cv2.imwrite(clean_img_path, clean_img)
 
@@ -98,12 +103,17 @@ def draw_distribution(label_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='This program creates iterative blur images.')
     parser.add_argument('--path', type=str, default='../data/sample_root/clean')
-    parser.add_argument('--n', type=int, default=5, help='Maximum number of times to repeat blur')
+    parser.add_argument('--n', type=int, default=4, help='Maximum number of times to repeat blur')
     args = parser.parse_args()
 
-    save_iterative_blur_img(args.path, args.n)
+    # [9/3] 수정
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = InceptionResnetV1(pretrained='vggface2', device=device).eval()
 
-# Draw distribution
-# label_path = '../data/112/label/label.csv'
-# draw_distribution(label_path)
+    # [9/3] Test : Batch Forwarding?
+    # dummy = torch.zeros((8, 3, 256, 256)).to(device)
+    # dummy_out = model(dummy)
+    # print(dummy_out.shape)    >> [8, 512]
+
+    save_iterative_blur_img(args.path, args.n, model=model, device=device)
 

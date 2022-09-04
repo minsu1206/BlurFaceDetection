@@ -1,7 +1,5 @@
 import copy
-from collections import defaultdict
 
-from tqdm import tqdm
 import numpy as np
 import torch
 from facenet_pytorch import MTCNN, InceptionResnetV1
@@ -64,7 +62,7 @@ def iterative_blur(model, image, blur_method=''):
             
             blur_image, blur_image_tensor = deblurGAN_blur_func(blur_image)
 
-def iterative_blur_n(image, n=3, dsize=(112, 112), blur_method_list=['deblurGAN', 'defocus']):
+def iterative_blur_n(model, image, n=3, dsize=(112, 112), blur_method_list=['deblurGAN', 'defocus'], device='cpu'):
     '''
     get n blur images list
 
@@ -79,11 +77,15 @@ def iterative_blur_n(image, n=3, dsize=(112, 112), blur_method_list=['deblurGAN'
         blur_image_list
         cossim_list
     '''
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+    # [9/3 수정] -> process 최적화
+    # (1) redundant model build -> remove!
+    # (2) embedding -> batch forwarding!
+
     clean_image = image
+    clean_img_tensor = torch.from_numpy(clean_image).permute(2, 0, 1).unsqueeze(0).float().to(device)
+    # clean_img_embed = model(clean_img_tensor).squeeze(0).cpu().detach()
     blur_image = copy.deepcopy(image)
-    blur_image_list, cossim_list = [], []
+    image_tensor_list, gen_image_list, cossim_list = [clean_img_tensor], [], []
 
     for count in range(1, n+1):
         blur_method = np.random.choice(blur_method_list)
@@ -93,22 +95,26 @@ def iterative_blur_n(image, n=3, dsize=(112, 112), blur_method_list=['deblurGAN'
         elif blur_method == 'deblurGAN':
             blur_image, blur_image_tensor = deblurGAN_blur_func(blur_image)
 
-        
-        cossim = cosine_similarity_func(model, clean_image, blur_image)
         gen_blur_image = cv2.resize(blur_image, dsize=dsize, interpolation=cv2.INTER_AREA)
-        blur_image_list.append(gen_blur_image)
-        cossim_list.append(cossim)
+        image_tensor_list.append(blur_image_tensor)
+        gen_image_list.append(gen_blur_image)
 
+    batch_imgs = torch.cat(image_tensor_list, dim=0)
+    # print(batch_imgs.shape) ok
+
+    cossim_list = cosine_similarity_batch(model, batch_imgs)
+    print(cossim_list)
     clean_image = cv2.resize(clean_image, dsize=dsize, interpolation=cv2.INTER_AREA)
-    return clean_image, blur_image_list, cossim_list
-  
+    return clean_image, gen_image_list, cossim_list
+    
 def defocus_blur_func(img):
     #input image (doesn't matter whether clean or blur)
     #return blurred image when the input is in.
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    blur_img, blur_deg = blurring(img, {'mean':50, 'var':0, 'dmin':0, 'dmax':100})
+    blur_img, blur_deg = blurring(img, {'mean':25, 'var':10, 'dmin':0, 'dmax':50})
     blur_img_tensor = torch.Tensor(blur_img).permute(2, 0, 1).unsqueeze(0).to(device)
     return blur_img, blur_img_tensor
+
 
 def deblurGAN_blur_func(img):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -123,13 +129,23 @@ def deblurGAN_blur_func(img):
 def cos_sim(emb1, emb2):
 	return np.dot(emb1, emb2)/(np.linalg.norm(emb1)*np.linalg.norm(emb2))
 
-def cosine_similarity_func(model, clean_img, blur_img):
+def cosine_similarity_func(model, clean_embed, blur_img):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    clean_img_tensor = torch.from_numpy(clean_img).permute(2, 0, 1).unsqueeze(0).float().to(device)
     blur_img_tensor = torch.from_numpy(blur_img).permute(2, 0, 1).unsqueeze(0).float().to(device)
-    clean_img_embed = model(clean_img_tensor).squeeze(0).cpu().detach()
     blur_img_embed = model(blur_img_tensor).squeeze(0).cpu().detach()
-    cossim = cos_sim(clean_img_embed, blur_img_embed)
-
+    cossim = cos_sim(clean_embed, blur_img_embed)
     return cossim
-    
+
+def cosine_similarity_batch(model, imgs):
+    img_embed = model(imgs)
+    clear_img_embed = img_embed[0, :]     # (F)
+    blur_imgs_embed = img_embed[1:, :]    # (B-1, F)
+
+    cossim_list = []
+    # Batch Cosine Similarity (Not on CPU. CUDA is faster. Detach follows CUDA matrix operation)
+
+    cossims = torch.nn.functional.cosine_similarity(clear_img_embed, blur_imgs_embed)
+    cossims = cossims.cpu().detach()
+    for cossim in cossims:
+        cossim_list.append(round(cossim.item(), 5))
+    return cossim_list
