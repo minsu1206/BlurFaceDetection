@@ -9,7 +9,7 @@ from insightface.app import FaceAnalysis
 from models.model_factory import model_build
 from dataset.dataset import FaceDataset
 from dataset.blur import crop_n_align
-import pytorch_lightning as pl
+
 
 def test(cfg, args, mode):
     '''
@@ -20,13 +20,9 @@ def test(cfg, args, mode):
         args
         mode: inference mode. it can be "video" or "image"
     '''
-
-
     ##############################
     #       BUILD MODEL          #
     ##############################
-
-
     model = model_build(model_name=cfg['train']['model'], num_classes=1)
     # only predict blur regression label -> num_classes = 1
     
@@ -38,12 +34,9 @@ def test(cfg, args, mode):
     if 'cuda' in device and torch.cuda.is_available():
         model = model.to(device)
     
-
     ##############################
     #       MODE : VIDEO         #
     ##############################
-
-
     if mode == 'video':
         video_path = args.file_path
         cap = cv2.VideoCapture(video_path)
@@ -110,12 +103,9 @@ def test(cfg, args, mode):
         out.release()
         cv2.destroyAllWindows()
 
-
     ##############################
     #       MODE : IMAGE         #
     ##############################
-
-
     if mode == 'image':
         image_path = args.file_path
         frame = cv2.imread(image_path)
@@ -169,14 +159,13 @@ def test(cfg, args, mode):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='')
-    parser.add_argument('--device', type=str, default='cpu')
-    parser.add_argument('--resume', type=str, default='')
-    parser.add_argument('--mode', type=str)
-    parser.add_argument('--file_path', type=str, default='./data/sample.mp4')
-    parser.add_argument('--save_path', type=str, default='./data/blur_sample.avi')
+    parser.add_argument('--config', type=str, default='./config/baseline.yaml', help='Path for configuration file')
+    parser.add_argument('--device', type=str, default='cpu', help='Device for model inference. It can be "cpu" or "cuda" ')
+    parser.add_argument('--resume', type=str, default='', help='Path for pretrained model file')
+    parser.add_argument('--mode', type=str, help='Inference mode. it can be "video" or "image"')
+    parser.add_argument('--file_path', type=str, default='./data/sample.mp4', help='Path for the video or image you want to infer')
+    parser.add_argument('--save_path', type=str, default='./data/blur_sample.avi', help='Path for saved the inference video')
     args = parser.parse_args()
-
 
     with open(args.config, 'r') as f:
         cfg = yaml.safe_load(f)
