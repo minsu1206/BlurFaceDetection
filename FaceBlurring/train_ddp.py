@@ -280,18 +280,6 @@ def select_device(device):
 		visible_gpu = [device]
 	return visible_gpu
 
-
-def build_loss_func(cfg):
-	'''Return loss function'''
-	# Hmmmmmmmm
-	# MSE 외에 다른 loss를 쓰려나?
-
-	for loss_name, weight in cfg['train']['loss']:
-		pass
-	
-	# raise NotImplementedError()
-	return None
-
 def build_optim(cfg, model):
 	'''Return optimizer'''
 	optim = cfg['train']['optim']

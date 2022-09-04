@@ -1,30 +1,28 @@
 import os
-import sched
+import argparse
+
+import yaml
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
-from dataset.dataset import FaceDataset
-# from models.mobilenet import FaceMobileNet
-# import pytorch_model_summary
-import yaml
-import argparse
-from models.model_factory import model_build
 import torchvision
+
+from dataset.dataset import FaceDataset
+from models.model_factory import model_build
+
 
 # TODO : Pytorch Lightning Wrapping -> Multi GPU
 def train(cfg, args):
+	'''Function for training face blur detection model'''
 
 	##############################
 	#       DataLoader           #
 	##############################
-
-
 	dataset = FaceDataset(
 		cfg['dataset']['txt_path'], 
 		transform=torchvision.transforms.Compose([torchvision.ToTensor()])
 	)		# FIXME
 	
-
 	dataset_size = len(dataset)
 	train_size = int(dataset_size*0.8)
 	val_size = dataset_size - train_size
@@ -38,21 +36,15 @@ def train(cfg, args):
 	train_dataloader = DataLoader(train_dataset, batch_size=batch, shuffle=True, num_workers=cfg['dataset']['num_workers'])
 	val_dataloader = DataLoader(val_dataset, batch_size=batch, shuffle=False, num_workers=cfg['dataset']['num_workers'])
 
-
-
-
 	##############################
 	#       BUILD MODEL          #
 	##############################
-
-
 	model = model_build(model_name=cfg['train']['model'], num_classes=1)
 	# only predict blur regression label -> num_classes = 1
 
 	##############################
 	#       Training SetUp       #
 	##############################
-	
 	# loss / optim / scheduler / ...
 	loss_func = build_loss_func(cfg)
 	optimizer = build_optim(cfg, model)
@@ -61,27 +53,22 @@ def train(cfg, args):
 	val_epoch = cfg['train']['val_epoch']
 
 	device = args.devices
-	# DDP Not supported yet.
 	if 'cuda' in device and torch.cuda.is_available():
 		model = model.to(device)
 
 	os.makedirs(args.save, exist_ok=True)
-
 	history = {"T_loss": [], "V_loss": []}
 
-	# resume
+	# Continue previous training
 	if '.ckpt' in args.resume:
 		checkpoint = torch.load(args.resume)
 		model = model.load_state_dict(checkpoint['model_state_dict'])
 		optimizer = optimizer.load_state_dict(checkpoint['optimizers_state_dict'])
 		scheduler = scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
-
-
 	##############################
 	#       START TRAINING !!    #
 	##############################
-
 	for epoch in range(epochs):
 		model.train()
 		training_loss = 0.0
@@ -99,7 +86,6 @@ def train(cfg, args):
 
 		if epoch and epoch % val_epoch == 0:
 			model.eval()
-
 			with torch.no_grad():
 				validating_loss = 0.0
 				for (image, label) in val_dataloader:
@@ -107,7 +93,6 @@ def train(cfg, args):
 					prediction = model(image)
 					loss = loss_func(prediction, label)
 					validating_loss += loss.item()
-
 				print(f"(Finish) Epoch : {epoch}/{epochs} >>>> Validation loss : {validating_loss/len(val_dataloader):.6f}")
 				history["V_loss"].append(validating_loss/len(val_dataloader))
 
@@ -120,20 +105,16 @@ def train(cfg, args):
 				}
 				, f"{args.save}/checkpoint_{epoch}.ckpt")
 
-
 def build_loss_func(cfg):
-	# Hmmmmmmmm
-	# MSE 외에 다른 loss를 쓰려나?
-
+	'''Return loss function'''
 	for loss_name, weight in cfg['train']['loss']:
 		pass
 	
 	# raise NotImplementedError()
 	return None
 
-
-
 def build_optim(cfg, model):
+	'''Return optimizer'''
 	optim = cfg['train']['optim']
 	optim = optim.lower()
 	lr = cfg['train']['lr']
@@ -146,9 +127,8 @@ def build_optim(cfg, model):
 	
 	# TODO : add optimizer
 
-
 def build_scheduler(cfg, optim):
-
+	'''Return learning rate scheduler'''
 	scheduler_dict = cfg['train']['scheduler']
 	scheduler, spec = scheduler_dict.items()
 	scheduler = scheduler.lower()
@@ -162,23 +142,16 @@ def build_scheduler(cfg, optim):
 	# TODO : add leraning rate scheduler
 
 
-
-
-
-
-
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--config', type=str, default='')
-	parser.add_argument('--save', type=str, default='')
-	parser.add_argument('--batch', type=int, default=-1)
-	parser.add_argument('--device', type=str, default='cpu')
-	parser.add_argument('--resume', type=str, default='')
+	parser.add_argument('--config', type=str, default='./config/baseline.yaml', help='Path of configuration file')
+	parser.add_argument('--save', type=str, default='', help='Path to save the model')
+	parser.add_argument('--batch', type=int, default=-1, help='Batch size for training')
+	parser.add_argument('--device', type=str, default='cpu', help='Device for training. It can be "cpu" or "cuda"')
+	parser.add_argument('--resume', type=str, default='', help='path to saved model')
 	args = parser.parse_args()
 
 	with open(args.config, 'r') as f:
 		cfg = yaml.safe_load(f)
 	
 	train(cfg, args)
-
-	
