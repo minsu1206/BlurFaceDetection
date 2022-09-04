@@ -1,0 +1,4 @@
+UEGAN/
+FaceBlurring/data/*.jpg
+FaceBlurring/data/**/*.jpg
+
