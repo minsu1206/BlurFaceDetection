@@ -1,6 +1,5 @@
 import argparse
-import pdb
-
+import os
 from tqdm import tqdm
 import pandas as pd
 from blur import *
@@ -10,8 +9,6 @@ from facenet_pytorch import InceptionResnetV1
 import torch
 import torch.nn.functional as F
 import pickle as pkl
-import matplotlib.pyplot as plt
-from blur_iterative import cosine_similarity_batch
 
 class CreateBlurImages:
     def __init__(self, data_dir, blur_method='defocus', update=''):
