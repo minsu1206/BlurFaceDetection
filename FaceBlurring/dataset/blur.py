@@ -1,18 +1,13 @@
 import random
-import os
-from scipy import signal
 from utils import *
-from insightface.app import FaceAnalysis
 
-def blurring(img, param, random_method='uniform'):
+def linear_kernel(param, random_method='uniform'):
     '''
-        Apply motion blur to the image(from defocus)
-        img : source img
-        param(dictionary) : [mean, var, dmin, dmax]
+        Create linear kernel(defocus method)
+        input : param, random_method
+        output = blur kernel
     '''
     mean, var, dmin, dmax = param['mean'], param['var'], param['dmin'], param['dmax']
-    # Create random degree and random angle with parameters
-    # [8/21] : uniform / gaussian 둘이 바뀌어있었음
     if random_method == 'gaussian':
         random_degree = dmax + 1
         while random_degree < dmin or random_degree > dmax:
@@ -22,30 +17,42 @@ def blurring(img, param, random_method='uniform'):
     else:
         raise ValueError("This metric is not available(choose from uniform, gaussian)")
 
-    if random_degree == 1:
+    if random_degree == 1 or random_degree == 0:
         random_angle = random.randint(-88, 88)
+        random_degree = 1
     else:
         random_angle = random.randint(-180, 180)
+    # Create random motion blur kernel
+    M = cv2.getRotationMatrix2D((random_degree / 2, random_degree / 2), random_angle, 1)
+    kernel = np.diag(np.ones(random_degree))
+    kernel = cv2.warpAffine(kernel, M, (random_degree, random_degree))
+    kernel = kernel / random_degree
 
-    if random_degree == 0:
-        image = np.array(img)
-        cv2.normalize(image, image, 0, 255, cv2.NORM_MINMAX)
-        blurred = np.array(image, dtype=np.uint8)
+    return kernel
 
-    else:
-        # Create random motion blur kernel
-        M = cv2.getRotationMatrix2D((random_degree / 2, random_degree / 2), random_angle, 1)
-        kernel = np.diag(np.ones(random_degree))
-        kernel = cv2.warpAffine(kernel, M, (random_degree, random_degree))
-        kernel = kernel / random_degree
+def blurring(img, kernel=None):
+    '''
+        Apply motion blur to the image(Both defocus and deblurGAN method)
 
-        # Apply kernel on the image sample
-        image = np.array(img)
-        blurred = cv2.filter2D(image, -1, kernel)
-        cv2.normalize(blurred, blurred, 0, 255, cv2.NORM_MINMAX)
-        blurred = np.array(blurred, dtype=np.uint8)
+    '''
+    if kernel is None:
+        choice = np.random.randint(2)
+        if choice == 0:
+            kernel = linear_kernel(param={'mean': 50, 'var': 20, 'dmin': 0, 'dmax': 200})
+        else:
+            trajectory = Trajectory({'canvas':64, 'iters':2000, 'max_len':60,
+                                     'expl': np.random.choice([0.003, 0.001,
+                                                               0.0007, 0.0005,
+                                                               0.0003, 0.0001])}).fit()
+            psf = PSF(64, trajectory=trajectory).fit()
+            kernel = psf[np.random.choice([1, 2, 3])]
+    # Apply kernel on the image sample
+    image = np.array(img)
+    blurred = cv2.filter2D(image, -1, kernel)
+    cv2.normalize(blurred, blurred, 0, 255, cv2.NORM_MINMAX)
+    blurred = np.array(blurred, dtype=np.uint8)
 
-    return blurred, random_degree/dmax
+    return blurred
 
 
 class Trajectory(object):
@@ -140,7 +147,6 @@ class PSF(object):
                 prevT = self.fraction[j - 1]
 
             for t in range(len(self.trajectory)):
-                trajectory_list = []
                 if (self.fraction[j] * self.iters >= t) and (prevT * self.iters < t - 1):
                     t_proportion = 1
                 elif (self.fraction[j] * self.iters >= t - 1) and (prevT * self.iters < t - 1):
@@ -169,200 +175,5 @@ class PSF(object):
                 PSF[M1, M2] += t_proportion * triangle_fun_prod(
                     self.trajectory[t].real - M2, self.trajectory[t].imag - M1
                 )
-                trajectory_list.append(np.abs(self.trajectory[t]))
-            trajectory_mag += np.mean(trajectory_list)
             self.PSFs.append(PSF / (self.iters))
-
-        return self.PSFs, 0.01*trajectory_mag/self.PSFnumber
-
-class BlurImage(object):
-    def __init__(self, image_path, PSFs=None, part=None, scrfd=False, app=None):
-        """
-        :param PSFs: array of Kernels.
-        :param part: int number of kernel to use.
-        """
-        # FIXME : [9/3 KMS]
-        # if app is None:
-        if scrfd:
-            app = FaceAnalysis(allowed_modules=['detection'],
-                               providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-            app.prepare(ctx_id=0, det_size=(640, 640))
-
-        if os.path.isfile(image_path):
-            self.image_path = image_path
-            self.original = cv2.imread(self.image_path)
-
-            if scrfd:
-                pad = 0
-                find = False
-                while not find and pad <= 200:
-                    padded = np.pad(self.original, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
-                    face_image, find = crop_n_align(app, padded)
-                    pad += 50
-
-                if find:
-                    self.original = face_image
-
-            self.shape = self.original.shape
-            if len(self.shape) < 3:
-                raise Exception('We support only RGB images yet.')
-            elif self.shape[0] != self.shape[1]:
-                raise Exception('We support only square images yet.')
-
-            #self.original = np.pad(self.original, ((500, 500), (500, 500), (0, 0)), 'constant', constant_values=0)
-            self.original = cv2.copyMakeBorder(self.original, 100, 100, 100, 100, cv2.BORDER_REFLECT)
-
-        else:
-            raise Exception(f'{image_path} is not correct path to image.')
-
-        if PSFs is None:
-            self.PSFs = PSF(canvas=self.original.shape[0]).fit()
-        else:
-            self.PSFs = PSFs
-        
-        self.part = part
-        self.result = []
-        
-        if len(self.original.shape) < 3:
-            raise Exception('We support only RGB images yet.')
-
-        elif self.original.shape[0] != self.original.shape[1]:
-            raise Exception('We support only square images yet.')
-
-    def _center_crop(self, source, dst_size):
-        H, W, C = source.shape
-        assert H >= dst_size and W >= dst_size, 'the dimension should be bigger than dst size'
-        H_diff, W_diff = H-dst_size, W-dst_size
-        return source[H_diff//2:H_diff//2+dst_size, W_diff//2:W_diff//2+dst_size, :]
-
-    def blur_image(self):
-        if self.part is None:
-            psf = self.PSFs
-        else:
-            psf = [self.PSFs[self.part]]
-        yN, _, _ = self.original.shape
-        key, _ = self.PSFs[0].shape
-        delta = yN - key
-        assert delta >= 0, 'resolution of image should be higher than kernel'
-        result=[]
-        if len(psf) > 1:
-            for p in psf:
-                tmp = np.pad(p, delta // 2, 'constant')
-                cv2.normalize(tmp, tmp, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                blured = cv2.normalize(self.original, self.original, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX,
-                                       dtype=cv2.CV_32F)
-                blured[:, :, 0] = np.array(signal.fftconvolve(blured[:, :, 0], tmp, 'same'))
-                blured[:, :, 1] = np.array(signal.fftconvolve(blured[:, :, 1], tmp, 'same'))
-                blured[:, :, 2] = np.array(signal.fftconvolve(blured[:, :, 2], tmp, 'same'))
-                blured = cv2.normalize(blured, blured, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                result.append(np.abs(blured))
-        else:
-            psf = psf[0]
-            tmp = np.pad(psf, delta // 2, 'constant')
-            cv2.normalize(tmp, tmp, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            blured = cv2.normalize(self.original, self.original, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX,
-                                   dtype=cv2.CV_32F)
-            blured[:, :, 0] = np.array(signal.fftconvolve(blured[:, :, 0], tmp, 'same'))
-            blured[:, :, 1] = np.array(signal.fftconvolve(blured[:, :, 1], tmp, 'same'))
-            blured[:, :, 2] = np.array(signal.fftconvolve(blured[:, :, 2], tmp, 'same'))
-            blured = cv2.normalize(blured, blured, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            result.append(np.abs(blured))
-
-        self.result = np.array(result[0]*255, dtype=np.uint8)
-        self.original = self._center_crop(self.original, dst_size=512)
-        self.result = self._center_crop(self.result, dst_size=512)
-        return self.original, self.result
-    
-#minor revision on BlurImage for image files
-class BlurringImage(object):
-    def __init__(self, image, PSFs=None, part=None, scrfd=False, app=None):
-        """
-        :param PSFs: array of Kernels.
-        :param part: int number of kernel to use.
-        """
-        # FIXME : [9/3 KMS]
-        # if app is None:
-        if scrfd:
-            app = FaceAnalysis(allowed_modules=['detection'],
-                               providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-            app.prepare(ctx_id=0, det_size=(640, 640))
-
-        self.original = image
-
-        if scrfd:
-            pad = 0
-            find = False
-            while not find and pad <= 200:
-                padded = np.pad(self.original, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
-                face_image, find = crop_n_align(app, padded)
-                pad += 50
-
-            if find:
-                self.original = face_image
-
-        self.shape = self.original.shape
-        if len(self.shape) < 3:
-            raise Exception('We support only RGB images yet.')
-        elif self.shape[0] != self.shape[1]:
-            raise Exception('We support only square images yet.')
-
-        #self.original = np.pad(self.original, ((500, 500), (500, 500), (0, 0)), 'constant', constant_values=0)
-        self.original = cv2.copyMakeBorder(self.original, 100, 100, 100, 100, cv2.BORDER_REFLECT)
-
-        if PSFs is None:
-            self.PSFs = PSF(canvas=self.original.shape[0]).fit()
-        else:
-            self.PSFs = PSFs
-        
-        self.part = part
-        self.result = []
-        
-        if len(self.original.shape) < 3:
-            raise Exception('We support only RGB images yet.')
-
-        elif self.original.shape[0] != self.original.shape[1]:
-            raise Exception('We support only square images yet.')
-
-    def _center_crop(self, source, dst_size):
-        H, W, C = source.shape
-        assert H >= dst_size and W >= dst_size, 'the dimension should be bigger than dst size'
-        H_diff, W_diff = H-dst_size, W-dst_size
-        return source[H_diff//2:H_diff//2+dst_size, W_diff//2:W_diff//2+dst_size, :]
-
-    def blur_image(self):
-        if self.part is None:
-            psf = self.PSFs
-        else:
-            psf = [self.PSFs[self.part]]
-        yN, _, _ = self.original.shape
-        key, _ = self.PSFs[0].shape
-        delta = yN - key
-        assert delta >= 0, 'resolution of image should be higher than kernel'
-        result=[]
-        if len(psf) > 1:
-            for p in psf:
-                tmp = np.pad(p, delta // 2, 'constant')
-                cv2.normalize(tmp, tmp, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                blured = cv2.normalize(self.original, self.original, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX,
-                                       dtype=cv2.CV_32F)
-                blured[:, :, 0] = np.array(signal.fftconvolve(blured[:, :, 0], tmp, 'same'))
-                blured[:, :, 1] = np.array(signal.fftconvolve(blured[:, :, 1], tmp, 'same'))
-                blured[:, :, 2] = np.array(signal.fftconvolve(blured[:, :, 2], tmp, 'same'))
-                blured = cv2.normalize(blured, blured, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-                result.append(np.abs(blured))
-        else:
-            psf = psf[0]
-            tmp = np.pad(psf, delta // 2, 'constant')
-            cv2.normalize(tmp, tmp, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            blured = cv2.normalize(self.original, self.original, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX,
-                                   dtype=cv2.CV_32F)
-            blured[:, :, 0] = np.array(signal.fftconvolve(blured[:, :, 0], tmp, 'same'))
-            blured[:, :, 1] = np.array(signal.fftconvolve(blured[:, :, 1], tmp, 'same'))
-            blured[:, :, 2] = np.array(signal.fftconvolve(blured[:, :, 2], tmp, 'same'))
-            blured = cv2.normalize(blured, blured, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-            result.append(np.abs(blured))
-
-        self.result = np.array(result[0]*255, dtype=np.uint8)
-        self.original = self._center_crop(self.original, dst_size=512)
-        self.result = self._center_crop(self.result, dst_size=512)
-        return self.original, self.result
+        return self.PSFs
