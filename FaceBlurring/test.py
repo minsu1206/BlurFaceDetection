@@ -79,8 +79,7 @@ def test(cfg, args, mode):
                 pad += 50
 
                 if find:
-                    # blur_label = f'{model(face_image):.2f}'
-                    blur_label = f'{np.random.rand(1)[0]:.2f}'
+                    blur_label = f'{model(face_image):.2f}'
                 else:
                     blur_label = 'Face not found'
 
@@ -103,7 +102,7 @@ def test(cfg, args, mode):
                 lineType)
             if len(faces) != 0:
                 bbox = faces[0]['bbox']
-                cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (0, 0, 255), 3)
+                cv2.rectangle(frame, (int(bbox[0]-pad//2), int(bbox[1]-pad//2)), (int(bbox[2]-pad//2), int(bbox[3]-pad//2)), (0, 0, 255), 3)
             out.write(frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -121,7 +120,50 @@ def test(cfg, args, mode):
 
 
     if mode == 'image':
-        raise NotImplementedError()
+        image_path = args.file_path
+        frame = cv2.imread(image_path)
+        width, height = frame.shape[0], frame.shape[1]
+        app = FaceAnalysis(allowed_modules=['detection'],
+                            providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+        app.prepare(ctx_id=0, det_size=(640, 640))
+
+        pad = 0
+        find = False
+
+
+        while not find and pad <= 200:
+            padded = np.pad(frame, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
+            face_image, find, faces = crop_n_align(app, padded, box=True)
+            pad += 50
+
+            if find:
+                blur_label = f'{model(face_image):.2f}'
+            else:
+                blur_label = 'Face not found'
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        if blur_label == 'Face not found':
+            TextPosition = (int(width*0.4), int(height*0.9))
+        else:
+            TextPosition = (int(width*0.45), int(height*0.9))
+        fontScale              = 1
+        fontColor              = (255,255,255)
+        thickness              = 2
+        lineType               = 2
+
+        cv2.putText(frame,blur_label, 
+            TextPosition, 
+            font,
+            fontScale,
+            fontColor,
+            thickness,
+            lineType)
+        if len(faces) != 0:
+            bbox = faces[0]['bbox']
+            cv2.rectangle(frame, (int(bbox[0]-pad//2), int(bbox[1]-pad//2)), (int(bbox[2]-pad//2), int(bbox[3]-pad//2)), (0, 0, 255), 3)
+        cv2.imshow('blur image', frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
     
 
 
@@ -145,8 +187,3 @@ if __name__ == "__main__":
     assert mode in ['video', 'image']
 
     test(cfg, args, mode)
-
-    
-
-
-    
