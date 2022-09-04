@@ -138,7 +138,6 @@ You can run dataset example 'after' generate blurred images.
    python dataset.py
 ```
 And do not forget to update 'text.txt' before run this command.
-<p align="center"><img src="./dataset/result_defocus_degree.png", width="550">
 
 ---
 ## 4. Embedding test with dataset
