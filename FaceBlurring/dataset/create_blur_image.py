@@ -38,7 +38,7 @@ class CreateBlurImages:
         self.pad_max = 200
 
         # Motion blur hyperparameters
-        self.parameters1 = {'mean': 50, 'var': 20, 'dmin': 0, 'dmax': 50}
+        self.parameters1 = {'mean': 50, 'var': 20, 'dmin': 0, 'dmax': 100}
         self.parameters2 = {'canvas': 64,
                             'iters': 2000,
                             'max_len': 60,
