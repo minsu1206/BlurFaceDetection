@@ -12,7 +12,7 @@ import pickle as pkl
 import os
 
 class CreateBlurImages:
-    def __init__(self, data_dir, blur_method='defocus', update=''):
+    def __init__(self, data_dir, blur_method='defocus', update='', filter=100000):
         '''
             class to create blur image dataset from raw images
             Args:
@@ -38,7 +38,7 @@ class CreateBlurImages:
         self.pad_max = 200
 
         # Motion blur hyperparameters
-        self.parameters1 = {'mean': 50, 'var': 20, 'dmin': 0, 'dmax': 200}
+        self.parameters1 = {'mean': 50, 'var': 20, 'dmin': 0, 'dmax': 50}
         self.parameters2 = {'canvas': 64,
                             'iters': 2000,
                             'max_len': 60,
@@ -55,7 +55,7 @@ class CreateBlurImages:
 
             if update != '':
                 # Generate new filters
-                new_filters = self.generate_blur_kernels(False, 100000)
+                new_filters = self.generate_blur_kernels(False, filter)
 
                 # Add generated filters to existing dictionary
                 if update == 'a':
@@ -74,7 +74,7 @@ class CreateBlurImages:
 
         # Generate filter file if filter file does not exist
         else:
-            self.filters = self.generate_blur_kernels(True, 100000)
+            self.filters = self.generate_blur_kernels(True, filter)
 
     def _get_all_imgs(self, root):
         '''
@@ -163,7 +163,7 @@ class CreateBlurImages:
         if scrfd:
             app = FaceAnalysis(allowed_modules=['detection'], providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
             app.prepare(ctx_id=0, det_size=(640, 640))
-        
+
         print('Generate blur images...')
         print("===================")
         print(f"Method : {self.blur_method}\nSCRFD : {scrfd}\nn_samples : {num_samples}\nbatch : {batch}")
@@ -235,10 +235,11 @@ if __name__ == "__main__":
     parser.add_argument('--scrfd', type=bool, help='Apply scrfd crop and align on the image', default=False)
     parser.add_argument('--iter', type=int, help="Number of samples to generate blur images", default=1)
     parser.add_argument('--update', type=str, help='update exist filter file(a to add, r to revise)', default='')
+    parser.add_argument('--filter', type=int, help='Number of filters to add or update or create', default=100000)
     parser.add_argument('--batch', type=int, help="Batch size of labeling", default=1)
     args = parser.parse_args()
 
-    blurrer = CreateBlurImages("../data", args.blur, args.update)
+    blurrer = CreateBlurImages("../data", args.blur, args.update, args.filter)
     blurrer.generate_blur_images(args.scrfd, args.iter, args.batch)
 
 
