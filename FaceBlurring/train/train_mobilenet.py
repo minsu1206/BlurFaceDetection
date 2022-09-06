@@ -1,106 +1,132 @@
 import os
 import sys
+import pdb
+from facenet_pytorch import InceptionResnetV1
+import torch.optim.lr_scheduler
+
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-import numpy as np
-import torch
-import torch.nn as nn
-import matplotlib.pyplot as plt
-from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 from torch.utils.data import DataLoader, random_split
 from dataset.dataset import FaceDataset
+from dataset.dataset2 import FaceDataset2, FaceDataset_val
 from models.mobilenet import FaceMobileNetV1, FaceMobileNetV2
+from models.resnet import *
 import torchvision.transforms as transforms
 import pytorch_model_summary
+import matplotlib.pyplot as plt
+import numpy as np
+import cv2
+import pickle
+def visualize(model, device, iteration, epoch):
+    model.eval()
+    with torch.no_grad():
+        path = '/data/faceblur/BlurFaceDetection/FaceBlurring/data_samples/data/FFHQ_1024/clean'
+        cos_mean_random = np.zeros(100)
+        cos_mean_fix = np.zeros(100)
+
+        with open('/data/faceblur/BlurFaceDetection/FaceBlurring/data_samples/random_reference.pkl', 'rb') as f:
+            real_mean_random = pickle.load(f)
+
+        with open('/data/faceblur/BlurFaceDetection/FaceBlurring/data_samples/fix_reference.pkl', 'rb') as f:
+            real_mean_fix = pickle.load(f)
+
+        iter = 0
+        for subpath in os.listdir(path):
+            if os.path.splitext(subpath)[-1] not in ['.png', '.jpg']:
+                sample_path = os.path.join(path, subpath)
+                iter += 1
+                for i in range(1, 101):
+                    blurred_img_fix = cv2.imread(os.path.join(sample_path, f'fix_{i}.png'))/255
+                    blurred_img_random = cv2.imread(os.path.join(sample_path, f'random_{i}.png'))/255
+                    try:
+                        blurred_img_fix = torch.Tensor(blurred_img_fix).permute(2, 0, 1).unsqueeze(0).to(device)
+                        estimated_fix = model(blurred_img_fix)
+
+                        blurred_img_random = torch.Tensor(blurred_img_random).permute(2, 0, 1).unsqueeze(0).to(device)
+                        estimated_random = model(blurred_img_random)
+
+                    except:
+                        estimated_random = (cos_mean_random[i-1]/iter)
+                        estimated_fix = (cos_mean_fix[i-1]/iter)
+
+                    cos_mean_random[i - 1] += estimated_random.item()
+                    cos_mean_fix[i - 1] += estimated_fix.item()
+
+        cos_mean_fix /= 30
+        cos_mean_random /= 30
+
+        plt.figure(figsize=(24, 7))
+        plt.subplot(1, 2, 1)
+        plt.plot(cos_mean_fix, 'k', linewidth=2, label="Estimated(Fix $\\theta$)")
+        plt.plot(real_mean_fix, 'k--', linewidth=2, label="Real(Fix $\\theta$)")
+        plt.legend(fontsize=15)
+
+        plt.subplot(1, 2, 2)
+        plt.plot(cos_mean_random, 'k', linewidth=2, label="Estimated(Random $\\theta$)")
+        plt.plot(real_mean_random, 'k--', linewidth=2, label="Real(Random $\\theta$)")
+        plt.legend(fontsize=15)
+        plt.savefig(f"graph_mobilenet_{epoch}_{iteration}.png")
 
 if __name__ == '__main__':
-	# Hyperparameters
-	device = "cuda" if torch.cuda.is_available() else "cpu"
-	print("Your current device is :", device)
-	batch = 64
-	input_size = 256
-	learning_rate = 1e-3
-	epochs = 10
+    # Hyperparameters
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print("Your current device is :", device)
+    batch = 4
+    learning_rate = 1e-3
+    input_size = 1024
+    epochs = 30
 
-	# Getting dataset
-	print("Geting dataset ...")
-	transform = transforms.Compose([transforms.ToTensor(), transforms.RandomHorizontalFlip(0.5)])
-	dataset = FaceDataset('../config/datadir.txt', 'blur', 'degree', transform, input_size)
-	dataset_size = len(dataset)
-	train_size = int(dataset_size*0.8)
-	val_size = int(dataset_size*0.1)
-	test_size = dataset_size - train_size - val_size
+    # Getting dataset
+    print("Getting dataset ...")
+    transform = transforms.Compose([transforms.ToTensor(), transforms.RandomHorizontalFlip(0.5)])
+    dataset = FaceDataset2('../data/label_blur_defocus/label/data_label.csv', 'cosine', transform, input_size, 'rgb')
+    val_dataset = FaceDataset_val('../data/label_val.csv', 'cosine', transform, input_size=input_size, cmap='rgb')
+    # Check number of each dataset size
+    print(f"Training dataset size : {len(dataset)}")
+    print(f"Validation dataset size : {len(val_dataset)}")
+    # Dataloaders
+    train_dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch, shuffle=False)
+    iter_length = len(train_dataloader)
 
-	# Split dataset into train, validation, test
-	train_dataset, val_dataset, test_dataset = random_split(dataset, [train_size, val_size, test_size])
+    # Instantiate model configuration
+    model = torch.hub.load('pytorch/vision:v0.10.0', 'mobilenet_v2', weights=True)
+    model.classifier = nn.Sequential(nn.Linear(1280, 128),
+                                     nn.BatchNorm1d(128),
+                                     nn.ReLU(inplace=True),
+                                     nn.Linear(128, 32),
+                                     nn.BatchNorm1d(32),
+                                     nn.ReLU(inplace=True),
+                                     nn.Linear(32, 1)
+    )
+    model.to(device)
+    print("Model configuration : ")
+    print(pytorch_model_summary.summary(model, torch.zeros(batch, 3, input_size, input_size).to(device), show_input=True))
+    # Criterion, Optimizer, Loss history tracker
+    criterion = nn.HuberLoss().to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15, 20], gamma=0.3)
+    # Create directory to save checkpoints
+    os.makedirs("./checkpoint/mobilenetV2_2/", exist_ok=True)
 
-	# Check number of each dataset size
-	print(f"Training dataset size : {len(train_dataset)}")
-	print(f"Validation dataset size : {len(val_dataset)}")
-	print(f"Testing dataset size : {len(test_dataset)}")
+    # Train model
+    print("Training ... ")
+    for epoch in range(epochs):
+        training_loss = 0.0
+        for i, (image, label) in tqdm(enumerate(train_dataloader)):
+            model.train()
+            image, label = image.to(device), label.to(device)
+            optimizer.zero_grad()
+            prediction = model(image)
+            loss = criterion(prediction, label.view(-1, 1))
+            training_loss += loss.item()
+            loss.backward()
+            optimizer.step()
+            if (i+1)%500 == 0:
+                print(f"Epoch #{epoch+1} [{i}/{len(train_dataloader)}] >>>> Training loss : {training_loss / (i + 1):.6f}")
+            if (i+1)%5000 == 0:
+                visualize(model, device, i, epoch)
 
-	# Dataloaders
-	train_dataloader = DataLoader(train_dataset, batch_size=batch, shuffle=True)
-	val_dataloader = DataLoader(val_dataset, batch_size=batch, shuffle=False)
-	test_dataloader = DataLoader(test_dataset, batch_size=batch, shuffle=False)
-	iter_length = len(train_dataloader)
-
-	# Instantiate model configuration
-	model = FaceMobileNetV2(input_size=input_size)
-	print("Model configuration : ")
-	print(pytorch_model_summary.summary(model, torch.zeros(batch, 3, input_size, input_size), show_input=True))
-
-	model.to(device)
-	# Criterion, Optimizer, Loss history tracker
-	criterion = nn.MSELoss().to(device)
-	optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-	scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
-	history = {"T_loss": [], "V_loss": []}
-
-	# Create directory to save checkpoints
-	os.makedirs("./checkpoint/mobilenet/", exist_ok=True)
-
-	# Train model
-	writer = SummaryWriter()
-	print("Training ... ")
-	for epoch in range(epochs):
-		model.train()
-		training_loss = 0.0
-		for i, (image, label) in enumerate(train_dataloader):
-			image, label = image.to(device), label.to(device)
-			optimizer.zero_grad()
-			prediction = model(image)
-			loss = criterion(prediction, label.view(-1, 1))
-			training_loss += loss.item()
-			loss.backward()
-			optimizer.step()
-
-			if i % (iter_length//10) == 0:
-				print(f"Epoch #{epoch}[{i}/{len(train_dataloader)}] >>>> Training loss : {training_loss/(i+1):.6f}")
-		#writer.add_scalar('Loss/train', training_loss/len(train_dataloader), epoch)
-		history["T_loss"].append(training_loss/iter_length)
-		scheduler.step()
-
-		model.eval()
-		with torch.no_grad():
-			validating_loss = 0.0
-			for (image, label) in val_dataloader:
-				image, label = image.to(device), label.to(device)
-				prediction = model(image)
-				loss = criterion(prediction, label.view(-1, 1))
-				validating_loss += loss.item()
-
-			print(f"(Finish) Epoch : {epoch}/{epochs} >>>> Validation loss : {validating_loss/len(val_dataloader):.6f}")
-			history["V_loss"].append(validating_loss/len(val_dataloader))
-			#writer.add_scalar('Loss/val', training_loss / len(train_dataloader), epoch)
-
-		torch.save(model, f"./checkpoint/mobilenet/checkpoint_{epoch}.pt")
-
-	plt.figure(figsize=(10, 16))
-	plt.subplot(2, 1, 1)
-	plt.plot(np.arange(epochs), history["T_loss"])
-	plt.title("Training loss", fontsize=15)
-	plt.subplot(2, 1, 2)
-	plt.plot(np.arange(epochs), history["V_loss"])
-	plt.title("Validation loss", fontsize=15)
-	plt.savefig("loss_hist.png")
+        scheduler.step()
+        torch.save(model, f"./checkpoint/mobilenetV2_2/checkpoint_{epoch}.pt")
