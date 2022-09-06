@@ -166,12 +166,13 @@ class CreateBlurImages:
         total_dict = {'filename': [], 'cosine': []}
         print('Gathering all label info ...')
         for (path, directory, files) in tqdm(os.walk(root)):
-            for filename in files:
-                if os.path.splitext(filename)[-1] == '.json':
-                    with open(os.path.join(path, filename), 'r') as f:
-                        json_obj = json.load(f)
-                        total_dict['filename'] += json_obj['filename']
-                        total_dict['cosine'] += json_obj['cosine']
+            if 'label_'+self.blur_method in path:
+                for filename in files:
+                    if os.path.splitext(filename)[-1] == '.json':
+                        with open(os.path.join(path, filename), 'r') as f:
+                            json_obj = json.load(f)
+                            total_dict['filename'] += json_obj['filename']
+                            total_dict['cosine'] += json_obj['cosine']
 
         os.makedirs(save_dir, exist_ok=True)
         df = pd.DataFrame(total_dict)
