@@ -10,6 +10,7 @@ import torch
 import torch.nn.functional as F
 import pickle as pkl
 import os
+import json
 
 class CreateBlurImages:
     def __init__(self, data_dir, blur_method='defocus', update='', filter=100000):
@@ -33,6 +34,7 @@ class CreateBlurImages:
         # Get sample paths in list
         self.sample_paths = self._get_all_imgs(data_dir)
         self._create_sample_dirs()
+        self._create_label_dirs()
 
         # padding option to face detection(SCRFD)
         self.pad_max = 200
@@ -108,6 +110,20 @@ class CreateBlurImages:
             blurpath = os.path.join(rootpath, 'blur_' + self.blur_method, subpath)
             os.makedirs(blurpath, exist_ok=True)
 
+    def _create_label_dirs(self):
+        '''
+            Function to create sample directories inside the directory
+            create directory name with blur_method
+        '''
+        print('Generate label directories...')
+        for files in tqdm(self.sample_paths):
+            path = os.path.dirname(files)
+            path2list = path.split(os.path.sep)
+            rootpath = os.path.sep.join(path2list[:3])
+            subpath = os.path.sep.join(path2list[4:])
+            blurpath = os.path.join(rootpath, 'label_' + self.blur_method, subpath)
+            os.makedirs(blurpath, exist_ok=True)
+
     def generate_blur_kernels(self, save=True, num_filters=100000):
         '''
             Generate random blur kernels
@@ -145,6 +161,23 @@ class CreateBlurImages:
 
         return filters
 
+    def json2csv(self, root):
+        save_dir = os.path.join('../data', f"label_{self.blur_method}", 'label')
+        total_dict = {'filename': [], 'cosine': []}
+        print('Gathering all label info ...')
+        for (path, directory, files) in tqdm(os.walk(root)):
+            for filename in files:
+                if os.path.splitext(filename)[-1] == '.json':
+                    with open(os.path.join(path, filename), 'r') as f:
+                        json_obj = json.load(f)
+                        total_dict['filename'] += json_obj['filename']
+                        total_dict['cosine'] += json_obj['cosine']
+
+        os.makedirs(save_dir, exist_ok=True)
+        df = pd.DataFrame(total_dict)
+        df.to_csv(os.path.join(save_dir, "label.csv"))
+        print("label created!")
+
     def generate_blur_images(self, scrfd=False, num_samples=1, batch=1):
         '''
             Generate blur images with random kernels
@@ -166,13 +199,15 @@ class CreateBlurImages:
 
         print('Generate blur images...')
         print("===================")
-        print(f"Method : {self.blur_method}\nSCRFD : {scrfd}\nn_samples : {num_samples}\nbatch : {batch}")
+        print(f"Method : {self.blur_method}\nSCRFD : {scrfd}\nn_samples : {num_samples}\nbatch : {batch}\n# filters : {len(self.filters['kernel'])}")
         print("===================")
 
         resnet = InceptionResnetV1(pretrained='vggface2', device='cuda' if torch.cuda.is_available() else 'cpu').eval()
         dict_for_label = {'filename': [], 'cosine': []}
         label_batch, clean_img_tensor, blur_img_tensor = 0, [], []
-        for image_file in tqdm(self.sample_paths):
+
+        pbar = tqdm(self.sample_paths)
+        for image_file in pbar:
             for iter in range(num_samples):
                 image = cv2.imread(image_file)
                 if image is None:
@@ -200,6 +235,7 @@ class CreateBlurImages:
                 rootpath = os.path.sep.join(path2list[:3])
                 subpath = os.path.sep.join(path2list[4:])
                 blurpath = os.path.join(rootpath, f'blur_{self.blur_method}', subpath)
+                labelpath = os.path.join(rootpath, f'label_{self.blur_method}', subpath)
 
                 assert len(path) + len(self.blur_method) == len(blurpath), 'You should create data directory properly'
                 if num_samples > 1:
@@ -224,10 +260,20 @@ class CreateBlurImages:
                     dict_for_label['cosine'] += cosine.tolist()
                     label_batch, clean_img_tensor, blur_img_tensor = 0, [], []
 
-        save_dir = os.path.join('../data', f"label_{self.blur_method}", 'label')
-        os.makedirs(save_dir, exist_ok=True)
-        df = pd.DataFrame(dict_for_label)
-        df.to_csv(os.path.join(save_dir, "label.csv"))
+                if batch == 1:
+                    with open(os.path.join(labelpath, f'{os.path.splitext(filename)[0]}.json'), 'w') as f:
+                        json.dump(dict_for_label, f, indent=2)
+
+                else:
+                    fistname = os.path.splitext(dict_for_label['filename'][0])
+                    lastname = os.path.splitext(dict_for_label['filename'][-1])
+                    with open(os.path.join(labelpath, f"{fistname}_{lastname}.json"), 'w') as f:
+                        json.dump(dict_for_label, f, indent=2)
+
+                pbar.set_postfix({'logging': filename+' is created with label'})
+                dict_for_label = {'filename': [], 'cosine': []}
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='This program creates blur images.')
@@ -241,5 +287,5 @@ if __name__ == "__main__":
 
     blurrer = CreateBlurImages("../data", args.blur, args.update, args.filter)
     blurrer.generate_blur_images(args.scrfd, args.iter, args.batch)
-
+    blurrer.json2csv("../data")
 
