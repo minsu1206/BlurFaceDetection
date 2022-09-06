@@ -257,7 +257,7 @@ class CreateBlurImages:
                     batch_blur = torch.cat(blur_img_tensor, dim=0)
                     emb_clean = resnet(batch_clean)
                     emb_blur = resnet(batch_blur)
-                    cosine = F.cosine_similarity(emb_clean, emb_blur)
+                    cosine = 1-F.cosine_similarity(emb_clean, emb_blur)
                     dict_for_label['cosine'] += cosine.tolist()
                     label_batch, clean_img_tensor, blur_img_tensor = 0, [], []
 
