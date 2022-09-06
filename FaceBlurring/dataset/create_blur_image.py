@@ -240,9 +240,11 @@ class CreateBlurImages:
 
                 assert len(path) + len(self.blur_method) == len(blurpath), 'You should create data directory properly'
                 if num_samples > 1:
-                    filename = os.path.splitext(os.path.basename(image_file))[0] + f'_{iter}.png'
+                    filename = os.path.splitext(os.path.basename(image_file))[0] +\
+                               f'_{iter}'+os.path.splitext(os.path.basename(image_file))[-1]
                 elif num_samples == 1:
-                    filename = os.path.splitext(os.path.basename(image_file))[0] + '.png'
+                    filename = os.path.splitext(os.path.basename(image_file))[0] +\
+                               os.path.splitext(os.path.basename(image_file))[-1]
 
                 cv2.imwrite(os.path.join(blurpath, filename), blurred)
                 dict_for_label['filename'] += [os.path.join(blurpath, filename)]
