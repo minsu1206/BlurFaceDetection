@@ -106,6 +106,16 @@ if __name__ == "__main__":
 	parser.add_argument('--path', type=str, required=True)
 	args = parser.parse_args()
 
+	"""
+	(1) If dataset has label file as csv format, we don't need to use recognition model.
+		Just extract distribution from csv file
+		In this case, input image size = (112, 112), so we can just get cosine similarity only.
+	
+	(2) (Not recommended - takes lots of time if dataset is large) 
+		If dataset doesn't have label file as csv format, we have to use recognition model.
+		Besides, we can extract other metrics like PNSR, SSIM.
+
+	"""
 	if '.csv' in args.path:
 		get_data_distribution_csv(args.path)
 	else:
