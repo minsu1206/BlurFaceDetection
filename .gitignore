@@ -1,4 +1,8 @@
 UEGAN/
-FaceBlurring/data/*.jpg
-FaceBlurring/data/**/*.jpg
+FaceBlurring/data/*.png
+FaceBlurring/data/**/*.png
+FaceBlurring/data/**/**/*.png
+*.pt
+*.ckpt
+
 

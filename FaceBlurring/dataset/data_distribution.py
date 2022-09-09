@@ -13,24 +13,28 @@ from utils import ssim, psnr
 from dataset import FaceDataset
 from embedding.embedding import L1_distance, L2_distance, cos_sim
 
-def get_data_distribution(config_file_path = "../config/test.txt"):
+import argparse
+import pandas as pd
+
+
+def get_data_distribution_raw(img_dir):
     '''
     Show distribution of blur/sharp dataset
     metric : [PSNR, SSIM, L1 distance, L2 distance, cosine similarity, same/different person]
 
         Args : 
-            config_file_path (str)
+            img_dir (str)
 
         Returns : 
             None
     '''
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    face_dataset_blur = FaceDataset(config_file_path, 'blur')
-    face_dataset_clean = FaceDataset(config_file_path, 'clean')
+    face_dataset_blur = FaceDataset(img_dir, 'blur')
+    face_dataset_clean = FaceDataset(img_dir, 'clean')
 
     L1_list, L2_list, cossim_list = [], [], []
     PSNR_list, SSIM_list = [], []
-    same_list = [0, 0] # Save 1 if cosine similarity > cossim_threshold(consider as a same person)
+    same_list = [0, 0]              # Save 1 if cosine similarity > cossim_threshold(consider as a same person)
     cossim_threshold = 0.4
 
     resnet = InceptionResnetV1(pretrained='vggface2').to(device).eval()
@@ -86,4 +90,21 @@ def get_data_distribution(config_file_path = "../config/test.txt"):
     plt.title('Recognition Distribution')
     plt.show()
 
-get_data_distribution(config_file_path = "../config/test.txt")
+def get_data_distribution_csv(csv_path):
+
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path', type=str, required=True)
+    args = parser.parse_args()
+
+    if '.csv' in args.path:
+        get_data_distribution_csv(args.path)
+    else:
+        get_data_distribution_raw(args.path)
+    
+
+
+
