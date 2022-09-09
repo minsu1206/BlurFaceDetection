@@ -91,7 +91,6 @@ def get_data_distribution_csv(csv_path):
 	cosine_val = np.array(df['cosine'])
 	train_idx = np.argwhere(np.array(df['train']) > 0)
 
-	# train_img_path = img_path[train_idx]
 	train_cosine_val = cosine_val[train_idx]
 
 	plt.figure(figsize=(12, 12))
