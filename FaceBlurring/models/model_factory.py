@@ -1,6 +1,7 @@
 import torch
 from models.mobilenet import *
 from models.resnet import *
+#from models.edgenext import *
 
 def model_build(model_name:str, num_classes:int):
     """
@@ -26,5 +27,8 @@ def model_build(model_name:str, num_classes:int):
         model = ResNet(block=BottleNeckResidualBlock, num_block=[3, 4, 6, 3], num_classes=num_classes)
     if model_name == 'UEGAN':
         model = UEGAN()
+        
+    #if model_name == 'edgenext':
+        #model = edgenext_xx_small()
         
     return model
