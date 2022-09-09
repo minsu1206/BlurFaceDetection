@@ -11,7 +11,7 @@ from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.models.fx_features import register_notrace_module
 from timm.models.layers import trunc_normal_tf_, DropPath, LayerNorm2d, Mlp, SelectAdaptivePool2d, create_conv2d
 from timm.models.helpers import named_apply, build_model_with_cfg, checkpoint_seq
-
+from timm.models import create_model
 
 def _cfg(url='', **kwargs):
     return {
@@ -490,3 +490,4 @@ def _create_edgenext(variant, pretrained=False, **kwargs):
 def edgenext_xx_small(pretrained=False, **kwargs):
     model_kwargs = dict(depths=(2, 2, 6, 2), dims=(24, 48, 88, 168), heads=(4, 4, 4, 4), **kwargs)
     return _create_edgenext('edgenext_xx_small', pretrained=pretrained, **model_kwargs)
+
