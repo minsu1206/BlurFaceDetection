@@ -7,8 +7,7 @@ import torch
 from insightface.app import FaceAnalysis
 
 from models.model_factory import model_build
-from dataset.dataset import FaceDataset
-from dataset.blur import crop_n_align
+from dataset.utils import crop_n_align
 
 
 def test(cfg, args, mode):
@@ -26,26 +25,27 @@ def test(cfg, args, mode):
     model = model_build(model_name=cfg['train']['model'], num_classes=1)
     # only predict blur regression label -> num_classes = 1
     
-    if '.ckpt' or '.pt' in args.resume:
-        model_state = torch.load(args.resume)
-        model = model.load_state_dict(model_state)
+    # if '.ckpt' or '.pt' in args.pretrained_path:
+    #     model_state = torch.load(args.pretrained_path)
+    #     model = model.load_state_dict(model_state)
 
-    device = args.device
-    if 'cuda' in device and torch.cuda.is_available():
-        model = model.to(device)
+    # device = args.device
+    # if 'cuda' in device and torch.cuda.is_available():
+    #     model = model.to(device)
     
     ##############################
     #       MODE : VIDEO         #
     ##############################
     if mode == 'video':
         video_path = args.file_path
-        cap = cv2.VideoCapture(video_path)
-        width  = cap.get(3) # width
-        height = cap.get(4) # height
+        cap = cv2.VideoCapture(video_path, apiPreference=cv2.CAP_MSMF)
+        width  = int(cap.get(3))
+        height = int(cap.get(4))
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
 
         save_path = args.save_path
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter(save_path, fourcc, 25.0, (640,480))
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
 
         # for face detection
         app = FaceAnalysis(allowed_modules=['detection'],
@@ -53,18 +53,23 @@ def test(cfg, args, mode):
         app.prepare(ctx_id=0, det_size=(640, 640))
 
         while(cap.isOpened()):
-            _, frame = cap.read()
+            grabbed, frame = cap.read()
+            if not grabbed:
+                break
 
             pad = 0
             find = False
-
-            while not find and pad <= 200:
+            
+            while pad <= 200:
                 padded = np.pad(frame, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
                 face_image, find, faces = crop_n_align(app, padded, box=True)
+                if find:
+                    break
                 pad += 50
 
             if find:
-                blur_label = f'{model(face_image):.2f}' # predict blur label
+                # blur_label = f'{model(face_image):.2f}' # predict blur label
+                blur_label = "0.21"
             else:
                 blur_label = 'Face not found'
 
@@ -77,9 +82,9 @@ def test(cfg, args, mode):
                 cv2.rectangle(frame, left_top, right_btm, red_color, thickness)
 
             if blur_label == 'Face not found':
-                TextPosition = (int(width*0.4), int(height*0.9))
+                TextPosition = (int(width*0.38), int(height*0.9))
             else:
-                TextPosition = (int(width*0.45), int(height*0.9))
+                TextPosition = (int(width*0.48), int(height*0.9))
             font = cv2.FONT_HERSHEY_SIMPLEX
             fontScale = 1
             fontColor = (255,255,255)
@@ -94,6 +99,7 @@ def test(cfg, args, mode):
                 thickness,
                 lineType)
             
+            cv2.imshow('blur image', frame)
             out.write(frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -117,9 +123,11 @@ def test(cfg, args, mode):
         pad = 0
         find = False
 
-        while not find and pad <= 200:
+        while pad <= 200:
             padded = np.pad(frame, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
             face_image, find, faces = crop_n_align(app, padded, box=True)
+            if find:
+                break
             pad += 50
 
             if find:
@@ -161,10 +169,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='./config/baseline.yaml', help='Path for configuration file')
     parser.add_argument('--device', type=str, default='cpu', help='Device for model inference. It can be "cpu" or "cuda" ')
-    parser.add_argument('--resume', type=str, default='', help='Path for pretrained model file')
-    parser.add_argument('--mode', type=str, help='Inference mode. it can be "video" or "image"')
-    parser.add_argument('--file_path', type=str, default='./data/sample.mp4', help='Path for the video or image you want to infer')
-    parser.add_argument('--save_path', type=str, default='./data/blur_sample.avi', help='Path for saved the inference video')
+    parser.add_argument('--pretrained_path', type=str, default='', help='Path for pretrained model file')
+    parser.add_argument('--mode', type=str, default='video', help='Inference mode. it can be "video" or "image"')
+    parser.add_argument('--file_path', type=str, default='./data/me4.mp4', help='Path for the video or image you want to infer')
+    parser.add_argument('--save_path', type=str, default='./data/blur_sample.mp4', help='Path for saved the inference video')
     args = parser.parse_args()
 
     with open(args.config, 'r') as f:
