@@ -25,13 +25,13 @@ def test(cfg, args, mode):
     model = model_build(model_name=cfg['train']['model'], num_classes=1)
     # only predict blur regression label -> num_classes = 1
     
-    # if '.ckpt' or '.pt' in args.pretrained_path:
-    #     model_state = torch.load(args.pretrained_path)
-    #     model = model.load_state_dict(model_state)
+    if '.ckpt' or '.pt' in args.pretrained_path:
+        model_state = torch.load(args.pretrained_path)
+        model = model.load_state_dict(model_state)
 
-    # device = args.device
-    # if 'cuda' in device and torch.cuda.is_available():
-    #     model = model.to(device)
+    device = args.device
+    if 'cuda' in device and torch.cuda.is_available():
+        model = model.to(device)
     
     ##############################
     #       MODE : VIDEO         #
@@ -68,8 +68,7 @@ def test(cfg, args, mode):
                 pad += 50
 
             if find:
-                # blur_label = f'{model(face_image):.2f}' # predict blur label
-                blur_label = "0.21"
+                blur_label = f'{model(face_image):.2f}' # predict blur label
             else:
                 blur_label = 'Face not found'
 
