@@ -1,274 +1,257 @@
-import pdb
-
+from typing import Iterable
 import torch
-import os
 import pandas as pd
 import numpy as np
-import cv2
+import math
+import cv2, os
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
 from torch.utils.data import Dataset
+from torchvision.transforms import transforms
+from tqdm import tqdm
+#from blur import *
 
-class FaceDataset(Dataset):
-    def __init__(self, data_root, option='blur', method='defocus',
-                 transform=None, input_size=None, check=False, contrast=False):
-        '''
-            Dataset
-            Check csv file(be sure create label first)
-            data_root : Top directory of dataset
-            method : blur method(defocus, deblurGAN, random, all)
-            input_size : image input size
-            check : get all images from lower directory(boolean)
-        '''
-
-        assert method in ['defocus', 'deblurGAN', 'random', 'all'], "Not available method"
-        self.contrast = contrast and (option == 'both')
+class FaceDatasetVal(Dataset):
+    def __init__(self, csv_file, metric='cosine', transform=None, input_size=None, cmap='gray', option='reg'):
+        self.path_n_label = pd.DataFrame.to_dict(pd.read_csv(csv_file))
+        self.metric = metric
+        assert metric in self.path_n_label.keys(), 'Not available metric, you have to create label'
         self.transform = transform
-        self.method = method
-        self.data_root = data_root
         self.option = option
-        self.label_path = f'../data/label_{method}/label/data_label.csv'
-        if method == 'all':
-            self.label_path = ['../data/label_defocus/label/data_label.csv',
-                               '../data/label_deblurGAN/label/data_label.csv',
-                               '../data/label_random/label/data_label.csv']
-
-        if check:
-            if option == 'clean':
-                self.sample_paths = self._get_clean_samples()
-                self.labels = np.zeros(len(self.sample_paths))
-
-            elif option == 'blur':
-                self.sample_paths, self.labels = self._get_blur_samples()
-
-            elif option == 'both':
-                self.blur_paths, self.blur_labels = self._get_blur_samples()
-                self.clean_paths = self._get_clean_samples()
-                self.clean_labels = np.zeros(len(self.sample_paths))
-
-            else:
-                raise ValueError("option should be 'clean' or 'blur' or 'both'.")
-        else:
-            if method != 'all':
-                if os.path.isfile(self.label_path):
-                    if option == 'clean':
-                        df = pd.read_csv(self.label_path)
-                        self.sample_paths = df['filename'].replace(f'blur_{method}', 'clean', regex=True)
-                        self.labels = np.zeros(len(self.sample_paths))
-
-                    elif option == 'blur':
-                        df = pd.read_csv(self.label_path)
-                        self.sample_paths = df['filename']
-                        self.labels = df['cosine']
-                        self.train = df['train']
-
-                    elif option == 'both':
-                        df = pd.read_csv(self.label_path)
-                        self.clean_paths = df['filename'].replace(f'blur_{method}', 'clean', regex=True)
-                        self.clean_labels = np.zeros(len(self.clean_paths))
-                        self.blur_paths = df['filename']
-                        self.blur_labels = df['cosine']
-                        self.train = df['train']
-
-                else:
-                    raise ValueError("Create label first(run create_blur_image.py first)")
-                    
-            else:
-                
-                if option == 'both':
-                    self.blur_paths, self.blur_labels, self.blur_train = {}, {}, {}
-                else:
-                    df_list = []
-                    
-                for i, label_pth in enumerate(self.label_path):
-                    if os.path.isfile(label_pth):
-                        if option == 'clean':
-                            if i == 0:
-                                df = pd.read_csv(label_pth)
-                                self.sample_paths = df['filename'].replace('blur_defocus', 'clean', regex=True)
-                                self.labels = np.zeros(len(label_pth))
-
-                        elif option == 'blur':
-                            df_list += [pd.read_csv(label_pth)]
-
-                        elif option == 'both':
-                            df = pd.read_csv(label_pth)
-                            if i == 0:
-                                self.clean_paths = df['filename'].replace('blur_defocus', 'clean', regex=True)
-                                self.clean_labels = np.zeros(len(self.clean_paths))
-                                self.blur_paths['defocus'] = df['filename']
-                                self.blur_labels['defocus'] = df['cosine']
-                                self.blur_train['defocus'] = df['train']
-                                
-                            elif i == 1:
-                                self.blur_paths['deblurGAN'] = df['filename']
-                                self.blur_labels['deblurGAN'] = df['cosine']
-                                self.blur_train['deblurGAN'] = df['train']
-                            else:
-                                self.blur_paths['random'] = df['filename']
-                                self.blur_labels['random'] = df['cosine']
-                                self.blur_train['random'] = df['train']
-
-                    else:
-                        raise ValueError("Create label first(run create_blur_image.py first)")
-                
-                if self.option == 'blur':
-                    df=  pd.concat(df_list, ignore_index=True)
-                    self.sample_paths = df['filename']
-                    self.labels = df['cosine']
-                    self.train = df['train']
 
         if input_size is None:
-            self.input_size = 112
+            self.input_size = 1024
         else:
             self.input_size = input_size
-            
-            
-        # get only training samples
-        if self.option == 'both':
-            self.clean_paths, self.blur_paths, self.clean_labels, self.blur_labels = self._get_training_samples()
-        
-        elif self.option == 'blur':
-            self.sample_paths, self.labels = self._get_training_samples()
-        
 
-    def _get_clean_samples(self):
-        paths = []
-        roots = self.data_root
-
-        for root in roots:
-            for (path, directory, files) in os.walk(root):
-                for filename in files:
-                    ext = os.path.splitext(filename)[-1]
-                    if ext in ['.png', '.jpg', 'PNG', 'JPG', 'JPEG'] and 'clean' in path:
-                        paths += [os.path.join(path, filename)]
-        return paths
-
-    def _get_blur_samples(self):
-        paths = []
-        labels = []
-        label_path = self.label_path
-        roots = self.data_root
-        assert os.path.isfile(label_path), "label file does not exist"
-        df = pd.read_csv(label_path)
-        assert self.calc in list(df.columns.values), 'Regenerate label with same metric'
-        if self.method != 'all':
-            for root in roots:
-                for (path, directory, files) in os.walk(root):
-                    for filename in files:
-                        ext = os.path.splitext(filename)[-1]
-                        if ext in ['.png', '.jpg', 'PNG', 'JPG', 'JPEG'] and 'blur_' + self.method in path:
-                            filepath = os.path.join(path, filename)
-                            paths += [filepath]
-                            labels.append(np.float32(df.loc[df['filename'] == filepath][self.calc].item()))
-                            
-        else:
-            for method in ['defocus', 'deblurGAN', 'random']:
-                for root in roots:
-                    for (path, directory, files) in os.walk(root):
-                        for filename in files:
-                            ext = os.path.splitext(filename)[-1]
-                            if ext in ['.png', '.jpg', 'PNG', 'JPG', 'JPEG'] and 'blur_' + method in path:
-                                filepath = os.path.join(path, filename)
-                                paths += [filepath]
-                                labels.append(np.float32(df.loc[df['filename'] == filepath][self.calc].item()))
-
-        return paths, labels
-    
-    def _get_training_samples(self):
-        
-        '''
-            Get only traning samples
-            You should run this code after create path and label list
-        '''
-        if self.method != 'all' and self.option == 'both': # clean, blur 1 : 1
-            clean_pth, blur_pth, clean_lb, blur_lb = [], [], [], []
-            for i in range(len(self.blur_paths)):
-                if self.train[i]:
-                    clean_pth.append(self.clean_paths[i])
-                    blur_pth.append(self.blur_paths[i])
-                    clean_lb.append(self.clean_labels[i])
-                    blur_lb.append(self.blur_labels[i])
-            return clean_pth, blur_pth, clean_lb, blur_lb
-                    
-        elif self.method == 'all' and self.option == 'both':           
-            clean_pth, clean_lb = [], []
-            blur_pth, blur_lb = [], []
-            for i in range(len(self.blur_paths['defocus'])):
-                if self.blur_train['defocus'][i]:
-                    clean_pth.append(self.clean_paths[i])
-                    clean_lb.append(self.clean_labels[i])
-                    blur_pth.append(self.blur_paths['defocus'][i])
-                    blur_lb.append(self.blur_labels['defocus'][i])
-                
-                if self.blur_train['deblurGAN'][i]:
-                    clean_pth.append(self.clean_paths[i])
-                    clean_lb.append(self.clean_labels[i])
-                    blur_pth.append(self.blur_paths['deblurGAN'][i])
-                    blur_lb.append(self.blur_labels['deblurGAN'][i])
-                    
-                if self.blur_train['random'][i]:
-                    clean_pth.append(self.clean_paths[i])
-                    clean_lb.append(self.clean_labels[i])
-                    blur_pth.append(self.blur_paths['random'][i])
-                    blur_lb.append(self.blur_labels['random'][i])
-            
-            return clean_pth, blur_pth, clean_lb, blur_lb
-        
-        elif self.option == 'blur':
-            blur_pth, blur_lb = [], []
-            for i in range(len(self.sample_paths)):
-                if self.train[i]:
-                    blur_pth.append(self.sample_paths[i])
-                    blur_lb.append(self.labels[i])
-            
-            return blur_pth, blur_lb
-            
+        self.cmap = cmap
 
     def __len__(self):
-        if self.option == 'both':
-            return len(self.clean_paths)
-        else:
-            return len(self.sample_paths)
+        return len(self.path_n_label['filename'])
 
     def __getitem__(self, idx):
-        if self.option != 'both':
-            img_path, label = self.sample_paths[idx], self.labels[idx]
-            try:
+        img_path, label = self.path_n_label['filename'][idx], self.path_n_label['cosine'][idx]
+
+        try:
+            if self.cmap == 'gray':
+                image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
+            elif self.cmap == 'rgb':
                 image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
 
-            except:
-                print(img_path, ': corrupted')
-                img_path, label = self.sample_paths[idx + 1], self.labels[idx + 1]
+        except:
+            print(img_path, ': Regenerate blurred sample')
+            img_path, label = self.path_n_label['filename'][idx+1], self.path_n_label['cosine'][idx+1]
+            if self.cmap == 'gray':
+                image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
+            elif self.cmap == 'rgb':
                 image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
 
-            image = cv2.resize(image, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
-            if self.transform:
-                image = self.transform(image).float()
+        image = cv2.resize(image,
+                           (self.input_size, self.input_size),
+                           interpolation=cv2.INTER_AREA)
+        if self.transform:
+            image = self.transform(image).float()
 
-            return image, torch.from_numpy(np.asarray(label)).float()
+        if self.option == 'reg':
+            label = torch.from_numpy(np.asarray(label)).float()
+        else:
+            label = (round(label/0.001), torch.from_numpy(np.asarray(label)).float())
+
+        return image, label
+
+'''
+def apply_more_blur(clean, blur, resnet, device):
+    degree = 0.0
+    clean, blur = cv2.imread(clean), cv2.imread(blur)
+    patience = 10
+    iteration = 0
+    while degree < 0.63 and iteration <= patience:
+        blur, _ = blurring(blur, {'mean':50, 'var':20, 'dmin':70, 'dmax':100})
+        emb_clean = resnet(torch.Tensor(clean).permute(2, 0, 1).unsqueeze(0).to(device))
+        emb_blur = resnet(torch.Tensor(blur).permute(2, 0, 1).unsqueeze(0).to(device))
+        cosine = F.cosine_similarity(emb_clean, emb_blur, 1).item()
+        degree = 1-cosine
+        iteration += 1
+
+    return blur, degree
+'''
+
+class FaceDataset(Dataset):
+    def __init__(self, csv_file, metric='cosine', transform=None, input_size=None, cmap='gray', option='reg'):
+        if hasattr(csv_file, '__iter__'):
+            df_list = []
+            for c in csv_file:
+                df_list += [pd.read_csv(c)]
+            self.path_n_label = pd.DataFrame.to_dict(pd.concat(df_list, ignore_index=True))
+        else:
+            self.path_n_label = pd.DataFrame.to_dict(pd.read_csv(csv_file))
+
+        self.paths, self.labels = self._get_training_samples()
+        self.metric = metric
+        assert metric in self.path_n_label.keys(), 'Not available metric, you have to create label'
+        self.transform = transform
+        self.option = option
+
+        if input_size is None:
+            self.input_size = 1024
+        else:
+            self.input_size = input_size
+
+        self.cmap = cmap
+
+    def _get_training_samples(self):
+        paths, labels = [], []
+        for i in range(len(self.path_n_label['filename'])):
+            if self.path_n_label['train'][i]:
+                paths.append(self.path_n_label['filename'][i])
+                labels.append(self.path_n_label['cosine'][i])
+
+        return paths, labels
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        img_path, label = self.paths[idx], self.labels[idx]
+        try:
+            if self.cmap == 'gray':
+                image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
+            elif self.cmap == 'rgb':
+                image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+
+        except:
+            print(img_path, ': Regenerate blurred sample')
+            img_path, label = self.paths[idx+1], self.labels[idx+1]
+            if self.cmap == 'gray':
+                image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
+            elif self.cmap == 'rgb':
+                image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+
+        image = cv2.resize(image,
+                           (self.input_size, self.input_size),
+                           interpolation=cv2.INTER_AREA)
+        if self.transform:
+            image = self.transform(image).float()
+
+        if self.option == 'reg':
+            label = torch.from_numpy(np.asarray(label)).float()
 
         else:
-            clean_pth, clean_lb = self.clean_paths[idx], self.clean_labels[idx]
-            blur_pth, blur_lb = self.blur_paths[idx], self.blur_labels[idx]
-            try:
-                clean = cv2.cvtColor(cv2.imread(clean_pth), cv2.COLOR_BGR2RGB)
-                blur = cv2.cvtColor(cv2.imread(blur_pth), cv2.COLOR_BGR2RGB)
+            label = (round(label/0.001), torch.from_numpy(np.asarray(label)).float())
+        
+        return image, label
 
-            except:
-                clean_pth, clean_lb = self.clean_paths[idx+1], self.clean_labels[idx+1]
-                blur_pth, blur_lb = self.blur_paths[idx+1], self.blur_labels[idx+1]
-                clean = cv2.cvtColor(cv2.imread(clean_pth), cv2.COLOR_BGR2RGB)
-                blur = cv2.cvtColor(cv2.imread(blur_pth), cv2.COLOR_BGR2RGB)
+if __name__ == '__main__':
+    ''' Code for generating blur samples again
+    clean_pth = '../data/FFHQ_1024/clean/11000/11021.png'
+    clean = cv2.imread(clean_pth)
+    blurred, degree = blurring(clean, {'mean':50, 'var':20, 'dmin':0, 'dmax':100})
+    cv2.imwrite('../data/FFHQ_1024/blur_defocus/11000/11021.png', blurred)
 
-            clean = cv2.resize(clean, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
-            blur = cv2.resize(blur, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+    resnet = InceptionResnetV1(pretrained='vggface2', device='cuda').eval()
+    emb_clean = resnet(torch.Tensor(clean).permute(2, 0, 1).unsqueeze(0).cuda())
+    emb_blur = resnet(torch.Tensor(blurred).permute(2, 0, 1).unsqueeze(0).cuda())
+    cosine = F.cosine_similarity(emb_clean, emb_blur, 1).item()
 
-            if self.transform:
-                clean = self.transform(clean).float()
-                blur = self.transform(blur).float()
+    dfdict = pd.DataFrame.to_dict(pd.read_csv('../data/label_blur_defocus/label/label.csv'))
+    for i in range(len(dfdict['filename'])):
+        if dfdict['filename'][i] == '../data/FFHQ_1024/blur_defocus/11000/11021.png':
+            print(i, dfdict['filename'][i], dfdict['cosine'][i])
+            print("Changing..")
+            dfdict['cosine'][i] = 1-cosine
+            print(i, dfdict['filename'][i], dfdict['cosine'][i])
+    df = pd.DataFrame(dfdict)
+    df.to_csv('../data/label_blur_defocus/label/label.csv')
+    '''
+    
+    ###############
+    dfdict = pd.DataFrame.to_dict(pd.read_csv('../data/label_defocus/label/label.csv'))
+    labels1 = []
+    for i in range(len(dfdict['filename'])):
+        labels1.append(dfdict['cosine'][i])
 
-            else:
-                image = {'clean' : clean, 'blur' : blur}
-                label = {'clean': torch.from_numpy(np.asarray(clean_lb)).float(),
-                         'blur': torch.from_numpy(np.asarray(blur_lb)).float()}
+    new_dict = {'filename' : [], 'cosine' : [], 'train' : []}
+    cnt_samples = np.zeros(81)
+    clean_paths, mblur_paths = [], []
+    for i in tqdm(range(len(dfdict['filename']))):
+        idx = math.trunc(dfdict['cosine'][i]/0.0125)
+        if idx == 0:
+            f = dfdict['filename'][i]
+            mblur_paths.append(f)
+            c = os.path.join((os.path.sep).join(f.split(os.path.sep)[:3]), 'clean', (os.path.sep).join(f.split(os.path.sep)[4:]))
+            clean_paths.append(c)
 
-            return image, label
+        cnt_samples[idx] += 1
+
+        if cnt_samples[idx] <= 700:
+            new_dict['train'].append(True)
+            new_dict['filename'].append(dfdict['filename'][i])
+            new_dict['cosine'].append(dfdict['cosine'][i])
+        else:
+            new_dict['train'].append(False)
+            new_dict['filename'].append(dfdict['filename'][i])
+            new_dict['cosine'].append(dfdict['cosine'][i])
+
+    plt.figure(figsize=(12, 7))
+    plt.hist(labels1, bins=80, color='black')
+    plt.show()
+    ###############
+
+
+    ''' Code for sub sample more blurry images
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    reblur_clean, reblur_pair = clean_paths[2000:], mblur_paths[2000:]
+    print('Reblur samples :',len(reblur_pair))
+    blur_samples = []
+    for c, b in tqdm(zip(reblur_clean, reblur_pair)):
+        blur, degree = apply_more_blur(c, b, resnet=InceptionResnetV1(pretrained='vggface2', device=device).eval(), device=device)
+        idx = new_dict['filename'].index(b)
+        new_dict['cosine'][idx] = degree
+        blur_samples.append(blur)
+
+    print(reblur_pair[10])
+    '''
+
+
+    #########################################
+    labels2 = []
+    for i in range(len(new_dict['filename'])):
+        if new_dict['train'][i]:
+            labels2.append(new_dict['cosine'][i])
+
+    plt.figure(figsize=(12, 7))
+    plt.hist(labels2, bins=80, color='black')
+    plt.show()
+
+    answer = input("Press y if want to save or n")
+    if answer == 'y':
+        df = pd.DataFrame(new_dict)
+        df.to_csv('../data/label_defocus/label/data_label.csv')
+    '''
+    dfdict1 = pd.DataFrame.to_dict(pd.read_csv('../data/label_random/label/data_label.csv'))
+    dfdict2 = pd.DataFrame.to_dict(pd.read_csv('../data/label_defocus/label/data_label.csv'))
+    labels3 = []
+    for i in range(len(dfdict1['filename'])):
+        if dfdict1['train'][i]:
+            labels3.append(dfdict1['cosine'][i])
+    for i in range(len(dfdict2['filename'])):
+        if dfdict2['train'][i]:
+            labels3.append(dfdict2['cosine'][i])
+
+    plt.figure(figsize=(12, 7))
+    plt.hist(labels3, bins=80, color='black')
+    plt.show()
+    ###########################################    
+    '''
+
+    '''
+    dfdict = pd.DataFrame.to_dict(pd.read_csv('../data/label_blur_defocus/label/data_label.csv'))
+    labels2 = []
+    for i in range(len(dfdict['filename'])):
+        if dfdict['train'][i]:
+            labels2.append(dfdict['cosine'][i])
+
+    plt.figure(figsize=(12, 7))
+    plt.hist(labels2, bins=40, color='black')
+    plt.show()
+    '''
