@@ -7,6 +7,7 @@ try:
     from models.squeezenet import *
     from models.mobilenetv2 import MobileNetV2
     from models.efficientnet import EfficientNetLite
+    from models.mobilenetv3 import mobilenetv3
 except:
     from resnet import *
     from edgenext import *
@@ -15,6 +16,7 @@ except:
     from squeezenet import *
     from mobilenetv2 import MobileNetV2
     from efficientnet import EfficientNetLite
+    from mobilenetv3 import mobilenetv3
 import argparse
 import time
 import os
@@ -72,6 +74,9 @@ def model_build(model_name:str, num_classes:int):
     
     if model_name == 'squeezenet1_1':
         model = squeezenet1_1(num_classes=num_classes)
+        
+    if model_name == 'mobilenetv3':
+        model = mobilenetv3(num_classes=num_classes)
 
         # exit()
 
