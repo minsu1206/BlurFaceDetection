@@ -30,7 +30,6 @@ class FaceDatasetVal(Dataset):
         assert metric in self.path_n_label.keys(), 'Not available metric, you have to create label'
 
         self.task = task
-        self.num_classes = num_classes
 
         if input_size is None:
             self.input_size = 1024
@@ -162,8 +161,9 @@ class FaceDataset(Dataset):
             label = torch.from_numpy(np.asarray(label)).float()
 
         else:
-            label = (round(label * self.num_classes), torch.from_numpy(np.asarray(label)).float())
-        
+            # label = (round(label * self.num_classes), torch.from_numpy(np.asarray(label)).float())
+            label = (torch.from_numpy(np.asarray(label)).float(), round(label * self.num_classes))
+
         return image, label
 
 if __name__ == '__main__':
