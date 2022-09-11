@@ -1,25 +1,24 @@
 import torch
 try:
-    from models.mobilenet import *
     from models.resnet import *
     from models.edgenext import *
-    from models.cspdarknet53 import *
+    # from models.cspdarknet53 import *
     from models.yolov5 import *
     from models.squeezenet import *
-    from models.mobilenet import MobileNet
+    from models.mobilenetv2 import MobileNetV2
     from models.efficientnet import EfficientNetLite
 except:
-    from mobilenet import *
     from resnet import *
     from edgenext import *
-    from cspdarknet53 import *
+    # from cspdarknet53 import *
     from yolov5 import *
     from squeezenet import *
-    from mobilenet import MobileNet
+    from mobilenetv2 import MobileNetV2
     from efficientnet import EfficientNetLite
 import argparse
 import time
 import os
+import numpy as np
 
 def model_build(model_name:str, num_classes:int):
     """
@@ -52,18 +51,21 @@ def model_build(model_name:str, num_classes:int):
     if model_name == 'edgenext_xx_small':
         model = edgenext_xx_small(num_classes=num_classes)
     
-    if model_name == 'cspdarknet53':
-        model = CSPDarknet53(
-            num_classes=num_classes, stem_channels=16,
-            feature_channels=[64, 64, 64, 64, 64],
-            branches=[2, 4, 4, 2]
-        )
+    # if model_name == 'cspdarknet53':
+    #     model = CSPDarknet53(
+    #         num_classes=num_classes, stem_channels=16,
+    #         feature_channels=[64, 64, 64, 64, 64],
+    #         branches=[2, 4, 4, 2]
+    #     )
     
     if model_name == 'efficientnetlite':
         model = EfficientNetLite(num_classes=num_classes)
 
-    if model_name == 'mobilenet':
-        model = MobileNet(num_classes=num_classes)
+    if model_name == 'mobilenetv2_0.25':
+        model = MobileNetV2(num_classes=num_classes, width_mult=0.25)
+    
+    if model_name == 'mobilenetv2_0.5':
+        model = MobileNetV2(num_classes=num_classes, width_mult=0.5)
 
     if model_name == 'yolov5n':
         model = Model('yolov5n.yaml')
