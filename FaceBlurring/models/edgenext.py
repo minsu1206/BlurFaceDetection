@@ -487,7 +487,7 @@ def _create_edgenext(variant, pretrained=False, **kwargs):
 
 
 ##Define Model
-def edgenext_xx_small(pretrained=False, **kwargs):
+def EdgenextXXSmall(pretrained=False, **kwargs):
     model_kwargs = dict(depths=(2, 2, 6, 2), dims=(24, 48, 88, 168), heads=(4, 4, 4, 4), **kwargs)
     return _create_edgenext('edgenext_xx_small', pretrained=pretrained, **model_kwargs)
 
