@@ -81,7 +81,7 @@ def ssim(img1, img2):
     else:
         raise ValueError('Wrong input image dimensions.')
 
-def crop_n_align(app, img):
+def crop_n_align(app, img, box=False):
     arcface_src = np.array(
         [[38.2946, 51.6963], [73.5318, 51.5014], [56.0252, 71.7366],
          [41.5493, 92.3655], [70.7299, 92.2041]],
@@ -99,4 +99,7 @@ def crop_n_align(app, img):
     else:
         image = img
 
-    return image, find
+    if box:
+        return image, find, faces
+    else:
+        return image, find
