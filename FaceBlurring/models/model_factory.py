@@ -10,6 +10,7 @@ from models.mobilenet import MobileNet
 from models.resnet import Resnet, ResnetCLS
 from models.edgenext import EdgenextXXSmall
 from models.efficientnet import EfficientNetLite
+from models.uegan import UEGAN
 
 def model_build(model_name:str, num_classes:int):
     """
