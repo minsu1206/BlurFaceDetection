@@ -98,7 +98,7 @@ if __name__ == '__main__':
     learning_rate = 1e-3
     input_size = 112
     epochs = 50
-    n_classes = 10
+    n_classes = 20
 
     # Getting dataset
     print("Getting dataset ...")
@@ -110,12 +110,12 @@ if __name__ == '__main__':
     dataset_size = len(dataset)
     train_size = int(dataset_size*0.8)
     val_size = dataset_size -train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(0))
     
-#     val_dataset = FaceDataset_val('../data/label_val.csv', 'cosine', transform, input_size=input_size, cmap='rgb', option='cls', num_classes=n_classes)
     # Check number of each dataset size
     print(f"Training dataset size : {len(dataset)}")
     print(f"Validation dataset size : {len(val_dataset)}")
+    
     # Dataloaders
     train_dataloader = DataLoader(train_dataset, batch_size=batch, shuffle=True)
     val_dataloader = DataLoader(val_dataset, batch_size=batch, shuffle=False)
@@ -141,14 +141,12 @@ if __name__ == '__main__':
     print("Model configuration : ")
     print(
         pytorch_model_summary.summary(model, torch.zeros(batch, 3, input_size, input_size).to(device), show_input=True))
+        
     # Criterion, Optimizer, Loss history tracker
     criterion = WeightedMSELoss(n_classes).to(device)
-    #criterion1 = nn.CrossEntropyLoss().to(device)
-    #criterion2 = nn.HuberLoss().to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.3)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
-    #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=25, eta_min=0, last_epoch=- 1, verbose=True)
+    
     # Create directory to save checkpoints
     os.makedirs(f"./checkpoint/edgenet_cls_{n_classes}/", exist_ok=True)
 
@@ -174,8 +172,6 @@ if __name__ == '__main__':
             total += cls_label.size(0)
             correct += (predicted == cls_label).sum().item()
             loss = criterion(prediction, cls_label, reg_label.view(-1, 1))
-            #value = torch.argmax(prediction, dim=1)/n_classes
-            #loss = 0.5*criterion1(prediction, cls_label) + 0.5*criterion2(value.view(-1, 1), reg_label.view(-1, 1))
             training_loss += loss.item()
             loss.backward()
             optimizer.step()
@@ -185,7 +181,6 @@ if __name__ == '__main__':
         
         hist['train_loss'] += [training_loss/len(train_dataloader)]
         hist['train_acc'] += [100*(correct/total)]
-        #visualize_cls(model, input_size, device, epoch, n_classes)
         scheduler.step()
         model.eval()
         with torch.no_grad():
