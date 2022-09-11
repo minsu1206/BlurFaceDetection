@@ -12,12 +12,25 @@ from tqdm import tqdm
 #from blur import *
 
 class FaceDatasetVal(Dataset):
-    def __init__(self, csv_file, metric='cosine', transform=None, input_size=None, cmap='gray', option='reg'):
-        self.path_n_label = pd.DataFrame.to_dict(pd.read_csv(csv_file))
+    def __init__(
+        self, csv_file, metric='cosine', transform=None, input_size=None, cmap='gray', 
+        task='regression', num_classes=20):
+        # [9/12 2AM]
+        if hasattr(csv_file, '__iter__'):
+            df_list = []
+            for c in csv_file:
+                df_list += [pd.read_csv(c)]
+            self.path_n_label = pd.DataFrame.to_dict(pd.concat(df_list, ignore_index=True))
+        else:
+            self.path_n_label = pd.DataFrame.to_dict(pd.read_csv(csv_file))
+            
+        self.num_classes = num_classes
+        self.paths, self.labels = self._get_training_samples()
         self.metric = metric
         assert metric in self.path_n_label.keys(), 'Not available metric, you have to create label'
-        self.transform = transform
-        self.option = option
+
+        self.task = task
+        self.num_classes = num_classes
 
         if input_size is None:
             self.input_size = 1024
@@ -25,12 +38,21 @@ class FaceDatasetVal(Dataset):
             self.input_size = input_size
 
         self.cmap = cmap
+        
+    def _get_training_samples(self):
+        paths, labels = [], []
+        for i in range(len(self.path_n_label['filename'])):
+            if self.path_n_label['Unnamed: 0'][i]:
+                paths.append('./BlurFaceDetection/FaceBlurring' + self.path_n_label['filename'][i][2:])
+                labels.append(self.path_n_label['cosine'][i])
+
+        return paths, labels
 
     def __len__(self):
-        return len(self.path_n_label['filename'])
+        return len(self.paths)
 
     def __getitem__(self, idx):
-        img_path, label = self.path_n_label['filename'][idx], self.path_n_label['cosine'][idx]
+        img_path, label = self.paths[idx], self.labels[idx]
 
         try:
             if self.cmap == 'gray':
@@ -40,7 +62,7 @@ class FaceDatasetVal(Dataset):
 
         except:
             print(img_path, ': Regenerate blurred sample')
-            img_path, label = self.path_n_label['filename'][idx+1], self.path_n_label['cosine'][idx+1]
+            img_path, label = self.paths[idx+1], self.labels[idx+1]
             if self.cmap == 'gray':
                 image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)
             elif self.cmap == 'rgb':
@@ -49,13 +71,14 @@ class FaceDatasetVal(Dataset):
         image = cv2.resize(image,
                            (self.input_size, self.input_size),
                            interpolation=cv2.INTER_AREA)
+
         if self.transform:
             image = self.transform(image).float()
 
-        if self.option == 'reg':
+        if self.task == 'regression':
             label = torch.from_numpy(np.asarray(label)).float()
         else:
-            label = (round(label/0.001), torch.from_numpy(np.asarray(label)).float())
+            label = (round(label * self.num_classes), torch.from_numpy(np.asarray(label)).float())
 
         return image, label
 
@@ -77,7 +100,8 @@ def apply_more_blur(clean, blur, resnet, device):
 '''
 
 class FaceDataset(Dataset):
-    def __init__(self, csv_file, metric='cosine', transform=None, input_size=None, cmap='gray', option='reg'):
+    def __init__(self, csv_file, metric='cosine', transform=None, input_size=None, cmap='gray', 
+    task='regression', num_classes=20):
         if hasattr(csv_file, '__iter__'):
             df_list = []
             for c in csv_file:
@@ -86,11 +110,12 @@ class FaceDataset(Dataset):
         else:
             self.path_n_label = pd.DataFrame.to_dict(pd.read_csv(csv_file))
 
+        self.num_classes = num_classes
         self.paths, self.labels = self._get_training_samples()
         self.metric = metric
         assert metric in self.path_n_label.keys(), 'Not available metric, you have to create label'
         self.transform = transform
-        self.option = option
+        self.task = task
 
         if input_size is None:
             self.input_size = 1024
@@ -133,11 +158,11 @@ class FaceDataset(Dataset):
         if self.transform:
             image = self.transform(image).float()
 
-        if self.option == 'reg':
+        if self.task == 'regression':
             label = torch.from_numpy(np.asarray(label)).float()
 
         else:
-            label = (round(label/0.001), torch.from_numpy(np.asarray(label)).float())
+            label = (round(label * self.num_classes), torch.from_numpy(np.asarray(label)).float())
         
         return image, label
 
