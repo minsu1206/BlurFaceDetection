@@ -161,8 +161,7 @@ class FaceDataset(Dataset):
             label = torch.from_numpy(np.asarray(label)).float()
 
         else:
-            # label = (round(label * self.num_classes), torch.from_numpy(np.asarray(label)).float())
-            label = (torch.from_numpy(np.asarray(label)).float(), round(label * self.num_classes))
+            label = (round(label * self.num_classes), torch.from_numpy(np.asarray(label)).float())
 
         return image, label
 
