@@ -1,15 +1,15 @@
-import torch
-try:
-    from models.mobilenet import *
-    from models.resnet import *
-    from models.edgenext import *
-except:
-    from mobilenet import *
-    from resnet import *
-    from edgenext import *
+import os
+import sys
 import argparse
 import time
-import os
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+
+import torch
+
+from models.mobilenet import MobileNet
+from models.resnet import Resnet, ResnetCLS
+from models.edgenext import EdgenextXXSmall
+from models.efficientnet import EfficientNetLite
 
 def model_build(model_name:str, num_classes:int):
     """
@@ -27,20 +27,24 @@ def model_build(model_name:str, num_classes:int):
     # just add if ~ : ~ code for another model like below.
     #
 
-    if model_name == 'resnet18':
-        model = ResNet(block=ResidualBlock, num_block=[2, 2, 2, 2], num_classes=num_classes)
+    if model_name == 'resnet':
+        model = Resnet(num_classes=num_classes)
     
-    if model_name == 'resnet34':
-        model = ResNet(block=ResidualBlock, num_block=[3, 4, 6, 3], num_classes=num_classes)
-    
-    if model_name == 'resnet50':
-        model = ResNet(block=BottleNeckResidualBlock, num_block=[3, 4, 6, 3], num_classes=num_classes)
-    
+    if model_name == 'resnet_cls':
+        model = ResnetCLS(num_classes=num_classes)
+
     if model_name == 'UEGAN':
-        model = UEGAN()
+        model = UEGAN() # UEGAN 파일 수정 필요
 
     if model_name == 'edgenext_xx_small':
-        model = edgenext_xx_small(num_classes=num_classes)
+        model = EdgenextXXSmall(num_classes=num_classes)
+
+    if model_name == 'efficientnetlite':
+        model = EfficientNetLite(num_classes=num_classes)
+
+    if model_name == 'mobilenet':
+        model = MobileNet(num_classes=num_classes)
+        
         
     return model
 
@@ -98,5 +102,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     model_test(args)
-
-
