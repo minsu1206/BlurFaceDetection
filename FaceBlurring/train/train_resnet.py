@@ -98,7 +98,16 @@ if __name__ == '__main__':
 
     # Instantiate model configuration
     model = torchvision.models.resnet18(pretrained=True)
-    model.fc = nn.Linear(512, 1)
+    model.fc = nn.Sequential(
+        nn.Linear(512, 128),
+        nn.BatchNorm1d(128),
+        nn.ReLU(),
+        nn.Linear(128, 32),
+        nn.BatchNorm1d(32),
+        nn.ReLU(),
+        nn.Linear(32, 1)
+    )
+    model = torch.load('/data/faceblur/BlurFaceDetection/FaceBlurring/train/checkpoint/resnet18_112/checkpoint_4.pt')
     model.to(device)
     print("Model configuration : ")
     print(
