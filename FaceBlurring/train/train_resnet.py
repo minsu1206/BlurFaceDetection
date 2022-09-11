@@ -75,18 +75,17 @@ def visualize(model, input_size, device, iteration, epoch):
 
 if __name__ == '__main__':
     # Hyperparameters
-    device = "cuda:3" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Your current device is :", device)
-    batch = 64
-    learning_rate = 1e-3
+    batch = 32
+    learning_rate = 3e-4
     input_size = 112
-    epochs = 50
+    epochs = 30
 
     # Getting dataset
     print("Getting dataset ...")
     transform = transforms.Compose([transforms.ToTensor(), transforms.RandomHorizontalFlip(0.5)])
-    label_list = ['../data/label_random/label/data_label.csv', '../data/label_defocus/label/data_label.csv', '../data/label_deblurGAN/label/data_label.csv']
-    dataset = FaceDataset2(label_list, 'cosine', transform, input_size, 'rgb')
+    dataset = FaceDataset2('../data/label_blur_defocus/label/data_label.csv', 'cosine', transform, input_size, 'rgb')
     val_dataset = FaceDataset_val('../data/label_val.csv', 'cosine', transform, input_size=input_size, cmap='rgb')
     # Check number of each dataset size
     print(f"Training dataset size : {len(dataset)}")
@@ -97,6 +96,7 @@ if __name__ == '__main__':
     iter_length = len(train_dataloader)
 
     # Instantiate model configuration
+    '''
     model = torchvision.models.resnet18(pretrained=True)
     model.fc = nn.Sequential(
         nn.Linear(512, 128),
@@ -107,6 +107,7 @@ if __name__ == '__main__':
         nn.ReLU(),
         nn.Linear(32, 1)
     )
+    '''
     model = torch.load('/data/faceblur/BlurFaceDetection/FaceBlurring/train/checkpoint/resnet18_112/checkpoint_4.pt')
     model.to(device)
     print("Model configuration : ")
@@ -115,14 +116,13 @@ if __name__ == '__main__':
     # Criterion, Optimizer, Loss history tracker
     criterion = nn.HuberLoss().to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5, 10, 15, 20], gamma=0.3)
     # Create directory to save checkpoints
-    os.makedirs("./checkpoint/resnet18_simple/", exist_ok=True)
+    os.makedirs("./checkpoint/resnet18_112/", exist_ok=True)
 
     # Train model
-    hist = {'train_loss' : [], 'val_loss' : []}
     print("Training ... ")
-    for epoch in range(epochs):
+    for epoch in range(5, epochs):
         training_loss = 0.0
         for i, (image, label) in tqdm(enumerate(train_dataloader)):
             model.train()
@@ -135,27 +135,9 @@ if __name__ == '__main__':
             optimizer.step()
             if (i + 1) % 100 == 0:
                 print(
-                    f"Epoch #{epoch+1} [{i}/{len(train_dataloader)}] >>>> Training loss : {training_loss / (i + 1):.6f}")
+                    f"Epoch #{epoch + 1} [{i}/{len(train_dataloader)}] >>>> Training loss : {training_loss / (i + 1):.6f}")
+            if (i + 1) % 600 == 0:
+                visualize(model, input_size, device, i, epoch)
+
         scheduler.step()
-        torch.save(model, f"./checkpoint/resnet18_simple/checkpoint_{epoch}.pt")
-        model.eval()
-        with torch.no_grad():
-            validation_loss = 0.0
-            for i, (image, label) in tqdm(enumerate(val_dataloader)):
-                model.train()
-                image, label = image.to(device), label.to(device)
-                prediction = model(image)
-                loss = criterion(prediction, label.view(-1, 1))
-                validation_loss += loss.item()
-                
-            print(f"Epoch #{epoch+1} [{i}/{len(val_dataloader)}] >>>> Validation loss : {validation_loss / len(val_dataloader):.6f}")
-            hist['train_loss'].append(training_loss/len(train_dataloader))
-            hist['val_loss'].append(validation_loss/len(val_dataloader))
-            
-    
-    plt.figure(figsize=(12, 7))
-    plt.title("Loss history", fontsize=20)
-    plt.plot(hist['train_loss'], 'k', linewidth=2, label="Training loss per epoch")
-    plt.plot(hist['val_loss'], 'k--', linewidth=2, label="Validation loss per epoch")
-    plt.legend(fontsize=15)
-    plt.savefig("resnet18_simple_loss.png")
+        torch.save(model, f"./checkpoint/resnet18_112/checkpoint_{epoch}.pt")

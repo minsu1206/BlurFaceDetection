@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # Hyperparameters
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Your current device is :", device)
-    batch = 16
+    batch = 64
     learning_rate = 1e-4
     input_size = 112
     epochs = 30
@@ -74,7 +74,7 @@ if __name__ == '__main__':
             training_loss += loss.item()
             loss.backward()
             optimizer.step()
-            if (i + 1) % 1 == 0:
+            if (i + 1) % 100 == 0:
                 print(
                     f"Epoch #{epoch + 1} [{i}/{len(train_dataloader)}] >>>> Training loss : {training_loss / (i + 1):.6f}")
 
