@@ -14,6 +14,3 @@ train:
   loss: 'huber'
   optim: 'adamw'
   scheduler: {'MultiStepLR': {"milestones": [5, 10, 15, 20], "gamma": 0.3}}
-
-  
-

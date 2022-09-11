@@ -1,4 +1,3 @@
-from turtle import forward
 import torch
 import torch.nn as nn
 from efficientnet_lite_pytorch import EfficientNet
