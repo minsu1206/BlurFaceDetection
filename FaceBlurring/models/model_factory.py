@@ -3,10 +3,20 @@ try:
     from models.mobilenet import *
     from models.resnet import *
     from models.edgenext import *
+    from models.cspdarknet53 import *
+    from models.yolov5 import *
+    from models.squeezenet import *
+    from models.mobilenet import MobileNet
+    from models.efficientnet import EfficientNetLite
 except:
     from mobilenet import *
     from resnet import *
     from edgenext import *
+    from cspdarknet53 import *
+    from yolov5 import *
+    from squeezenet import *
+    from mobilenet import MobileNet
+    from efficientnet import EfficientNetLite
 import argparse
 import time
 import os
@@ -41,7 +51,28 @@ def model_build(model_name:str, num_classes:int):
 
     if model_name == 'edgenext_xx_small':
         model = edgenext_xx_small(num_classes=num_classes)
-        
+    
+    if model_name == 'cspdarknet53':
+        model = CSPDarknet53(
+            num_classes=num_classes, stem_channels=16,
+            feature_channels=[64, 64, 64, 64, 64],
+            branches=[2, 4, 4, 2]
+        )
+    
+    if model_name == 'efficientnetlite':
+        model = EfficientNetLite(num_classes=num_classes)
+
+    if model_name == 'mobilenet':
+        model = MobileNet(num_classes=num_classes)
+
+    if model_name == 'yolov5n':
+        model = Model('yolov5n.yaml')
+    
+    if model_name == 'squeezenet1_1':
+        model = squeezenet1_1(num_classes=num_classes)
+
+        # exit()
+
     return model
 
 
@@ -75,8 +106,8 @@ def model_test(args):
     # (2) Model inference time
     dummy_input = torch.zeros((1, 3, args.input_size, args.input_size))
     records = []
-    rep = 200
-    for i in range(200):
+    rep = 500
+    for i in range(500):
         start = time.process_time_ns()
         dummy_output = model(dummy_input)
         end = time.process_time_ns()
@@ -85,10 +116,11 @@ def model_test(args):
 
     avg_speed_ns = sum(records) / rep
     std_speed = float(np.std(records))
+    print("Output shape : ", dummy_output.shape)
     print("Inference AVG speed : ", round(avg_speed_ns / 1e6, 4), "(ms)")
     print("Inference STD speed : ", round(std_speed / 1e6, 4), "(ms)")
     print("Inference fastest speed : ", round(min(records) / 1e6, 4), "(ms)")
-    print("Inference slowest sppeed : ", round(max(records) / 1e6, 4), "(ms)")
+    print("Inference slowest speed : ", round(max(records) / 1e6, 4), "(ms)")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
