@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import yaml
 from tqdm import tqdm
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 import pytorch_model_summary
 import torchvision.transforms as transforms
 
@@ -49,10 +49,18 @@ def train(cfg, args):
                                 transforms.RandomHorizontalFlip(0.5)
                             ])
 
-    train_dataset = FaceDataset(
+    total_dataset = FaceDataset(
         train_csv_path, dataset_metric, transform, img_size, 'rgb', task=task_name, num_classes=num_classes)
-    val_dataset = FaceDatasetVal(
-        val_csv_path, dataset_metric, transform, img_size, 'rgb', task=task_name,num_classes=num_classes)
+    
+    if len(val_csv_path) == 0 :
+        dataset_size = len(total_dataset)
+        train_size = int(dataset_size*0.8)
+        val_size = dataset_size - train_size
+        train_dataset, val_dataset = random_split(total_dataset, [train_size, val_size], generator=torch.Generator().manual_seed(0))
+    else :
+        train_dataset = total_dataset
+        val_dataset = FaceDatasetVal(
+            val_csv_path, dataset_metric, transform, img_size, 'rgb', task=task_name,num_classes=num_classes)
     
     # Check number of each dataset size
     print(f"Training dataset size : {len(train_dataset)}")
