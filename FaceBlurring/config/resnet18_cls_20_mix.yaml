@@ -1,0 +1,18 @@
+exp_name: resnet18_cls_20_mix
+task_name: classification
+num_classes: 20
+dataset:
+  batch: 64
+  train_csv_path: ['./data/label_random/label/data_label.csv', './data/label_defocus/label/data_label.csv', './data/label_deblurGAN/label/data_label.csv']
+  val_csv_path: []
+  metric: 'cosine'
+  image_size: 112
+  
+train:
+  model: 'resnet18'
+  lr: 0.001
+  epochs: 50
+  val_iters: 50
+  loss: {'huber':0.5, 'crossentropy':0.5}
+  optim: 'adamw'
+  scheduler: {'exponentiallr': {"gamma": 0.95}}

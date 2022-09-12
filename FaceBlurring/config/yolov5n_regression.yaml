@@ -1,0 +1,16 @@
+exp_name: yolov5n_regression
+task_name: regression
+dataset:
+  batch: 64
+  train_csv_path: ['./data/label_random/label/data_label.csv', './data/label_defocus/label/data_label.csv', './data/label_deblurGAN/label/data_label.csv']
+  val_csv_path: []
+  metric: 'cosine'
+  image_size: 112
+train:
+  model: 'yolov5n'
+  lr: 0.001
+  epochs: 50
+  val_iters: 50
+  loss: {'huber':1}
+  optim: 'adamw'
+  scheduler: {'exponentiallr': {"gamma": 0.95}}
