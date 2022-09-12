@@ -2,7 +2,9 @@ UEGAN/
 FaceBlurring/data/*.png
 FaceBlurring/data/**/*.png
 FaceBlurring/data/**/**/*.png
-*.pt
+train/*.png
+# *.pt
+# *.pth
 *.ckpt
 
 

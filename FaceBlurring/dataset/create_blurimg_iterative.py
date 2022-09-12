@@ -160,6 +160,7 @@ def work_single(model, n, img_path):
     blur_method_list=['deblurGAN', 'defocus'], device='cpu')
     for idx, blur_img in enumerate(blur_img_list):
         blur_img_path = img_path.replace('clean', 'blur').replace('.png', f'_{idx}.png')
+        # print(blur_img_path)
         cv2.imwrite(blur_img_path, blur_img)
 
 
