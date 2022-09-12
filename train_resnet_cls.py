@@ -40,6 +40,9 @@ if __name__ == '__main__':
                  './BlurFaceDetection/FaceBlurring/data/label_random/label/data_label.csv']
     dataset = FaceDataset(label_list ,'cosine', transform, input_size, 'rgb', 'cls')
     
+    # Seeding
+    torch.random.manual_seed(1000000)
+
     # Splitting dataset
     dataset_size = len(dataset)
     train_size = int(dataset_size*0.8)
