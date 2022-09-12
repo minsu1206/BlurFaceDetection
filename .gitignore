@@ -6,5 +6,6 @@ train/*.png
 # *.pt
 # *.pth
 *.ckpt
+*.pyc
 
 
