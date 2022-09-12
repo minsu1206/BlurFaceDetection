@@ -1,4 +1,4 @@
-exp_name: sample
+exp_name: base_classification
 task_name: classification
 num_classes: 20
 dataset:

@@ -1,4 +1,4 @@
-exp_name: sample
+exp_name: base_regression
 task_name: regression
 dataset:
   batch: 32

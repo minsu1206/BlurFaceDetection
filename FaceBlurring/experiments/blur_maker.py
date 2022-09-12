@@ -43,7 +43,7 @@ def blurring(img, d=None, angle=None):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--img_root', type=str)
+    parser.add_argument('--img_root', type=str, help="FFHQ1024 dataset dir")
     parser.add_argument('--mode', type=str, default='random', 'Select type of data samples. It can be "fix" or "random"')
     args = parser.parse_args()
 

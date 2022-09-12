@@ -108,9 +108,10 @@ def train(cfg, args):
     os.makedirs(args.save + '/viz', exist_ok=True)
 
     # (4) : Resume previous training
-    if '.ckpt' in args.resume:
+    if '.ckpt' in args.resume or '.pt' in args.resume:
+        print("RESUME")
         checkpoint = torch.load(args.resume)
-        model = model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(checkpoint['model_state_dict'])
         optimizer = optimizer.load_state_dict(checkpoint['optimizers_state_dict'])
         scheduler = scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         start = checkpoint['epoch']
@@ -181,14 +182,20 @@ def train(cfg, args):
                 validation_loss += loss.item()
                 # break
 
-            print(f"(Val)Epoch #{epoch + 1} >>>> Validation loss : {validation_loss / len(val_dataloader):.6f}")
+            print(f"Epoch #{epoch + 1} >>>> Validation loss : {validation_loss / len(val_dataloader):.6f}")
 
         # (2) : Visualization
         if args.viz:
             if task_name == 'regression':
-                visualize(model, img_size, device, epoch, args.save + '/viz')
+                cos_mean_fix, cos_mean_random = visualize(model, img_size, device, epoch, args.save + '/viz')
             elif task_name == 'classification':
-                visualize_cls(model, img_size, device, epoch, num_classes, args.save + '/viz')
+                cos_mean_fix, cos_mean_random = visualize_cls(model, img_size, device, epoch, num_classes, args.save + '/viz')
+
+            cos_mean_fix = round(float(np.mean(cos_mean_fix)), 4)
+            cos_mean_random = round(float(np.mean(cos_mean_random)), 4)
+
+            print(f"Epoch #{epoch + 1} >>>> Test Metric - fix: {cos_mean_fix}")
+            print(f"Epoch #{epoch + 1} >>>> Test Metric - random: {cos_mean_random}")
 
         # (3) : Checkpoint
         torch.save(
@@ -199,19 +206,19 @@ def train(cfg, args):
                 "epoch": epoch
             }
             , f"{args.save}/checkpoint_{epoch}.ckpt")
-
+        print(f"Epoch #{epoch + 1} >>>> SAVE .ckpt file")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='./config/baseline.yaml', help='Path for configuration file')
+    parser.add_argument('--config', type=str, default='base_regression', help='Path for configuration file')
     parser.add_argument('--device', type=str, default='cpu', help='Device for model inference. It can be "cpu" or "cuda" ')
-    parser.add_argument('--save', type=str, default='./checkpoint/effnet_112_random/', help='Path to save model file')
+    parser.add_argument('--save', type=str, default='checkpoint/base_regression', help='Path to save model file')
     parser.add_argument('--resume', type=str, default='', help='Path to pretrained model file')
     parser.add_argument('--viz', action='store_true')
     args = parser.parse_args()
 
-    with open(args.config, 'r') as f:
+    with open('config/' + args.config + '.yaml', 'r') as f:
         cfg = yaml.safe_load(f)
 
     train(cfg, args)

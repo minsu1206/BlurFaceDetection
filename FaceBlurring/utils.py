@@ -130,6 +130,7 @@ def build_scheduler(cfg, optimizer):
 ##########################################################
 
 def visualize(model, input_size, device, epoch, save_path):
+    
     path = 'data_samples/samples'
     if not os.path.exists(path):
         path = os.getcwd() + path
@@ -183,7 +184,8 @@ def visualize(model, input_size, device, epoch, save_path):
                         
                     cos_mean_random[i - 1] += estimated_random.item()
                     cos_mean_fix[i - 1] += estimated_fix.item()
-            # break
+                
+            break
 
         cos_mean_fix /= 30
         cos_mean_random /= 30
@@ -200,6 +202,7 @@ def visualize(model, input_size, device, epoch, save_path):
         plt.legend(fontsize=15)
         plt.savefig(f"{save_path}/graph_{epoch}.png")
 
+    return cos_mean_fix, cos_mean_random
 
 def visualize_cls(model, input_size, device, epoch, cls_num, save_path):
     path = 'data_samples/samples'
@@ -275,3 +278,5 @@ def visualize_cls(model, input_size, device, epoch, cls_num, save_path):
         plt.legend(fontsize=15)
         plt.savefig(f"{save_path}/graph_{epoch}_cls_{cls_num}_visualize.png")
         plt.close()
+
+    return cos_mean_fix, cos_mean_random
