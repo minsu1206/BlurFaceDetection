@@ -114,7 +114,7 @@ class BaseModel(nn.Module):
         
         for i, m in enumerate(self.model):
             # print(i, type(m), x.shape)
-            if isinstance(m, nn.Linear):
+            if i == len(self.model) - 1 :
                 x = x.view(x.shape[0], -1)
                 x = m(x)
                 break
@@ -345,7 +345,9 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             ch = []
         ch.append(c2)
 
-    layers.append(nn.Linear(128*4*4, 1))
+    layers.append(
+        nn.Sequential(
+        nn.Linear(128*4*4, 1), nn.Sigmoid()))
 
     return nn.Sequential(*layers), sorted(save)
 

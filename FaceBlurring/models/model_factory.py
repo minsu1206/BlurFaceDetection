@@ -75,10 +75,11 @@ def model_build(model_name:str, num_classes:int):
     if model_name == 'squeezenet1_1':
         model = squeezenet1_1(num_classes=num_classes)
         
-    if model_name == 'mobilenetv3':
-        model = mobilenetv3(num_classes=num_classes)
+    if model_name == 'mobilenetv3_0.5':
+        model = mobilenetv3(num_classes=num_classes, width_mult=0.5)
 
-        # exit()
+    if model_name == 'mobilenetv3_0.75':
+        model = mobilenetv3(num_classes=num_classes, width_mult=0.75)
 
     return model
 

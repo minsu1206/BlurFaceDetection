@@ -180,7 +180,8 @@ class MobileNetV3(nn.Module):
             self.features.append(conv_1x1_bn(input_channel, last_conv, nlin_layer=Hswish))
             self.features.append(nn.AdaptiveAvgPool2d(1))
             self.features.append(nn.Conv2d(last_conv, last_channel, 1, 1, 0))
-            self.features.append(Hswish(inplace=True))
+            # self.features.append(Hswish(inplace=True))
+            self.features.append(nn.Sigmoid())
         elif mode == 'small':
             last_conv = make_divisible(576 * width_mult)
             self.features.append(conv_1x1_bn(input_channel, last_conv, nlin_layer=Hswish))
@@ -188,25 +189,26 @@ class MobileNetV3(nn.Module):
             self.features.append(nn.AdaptiveAvgPool2d(1))
             #self.features.append(nn.Conv2d(last_conv, last_channel, 1, 1, 0)) -> Used to be this, but changed last_channel = 1
             self.features.append(nn.Conv2d(last_conv, 1, 1, 1, 0))
-            self.features.append(Hswish(inplace=True))
+            # self.features.append(Hswish(inplace=True))
+            self.features.append(nn.Sigmoid())
         else:
             raise NotImplementedError
 
         # make it nn.Sequential
         self.features = nn.Sequential(*self.features)
 
-        # building classifier
-        self.classifier = nn.Sequential(
-            nn.Dropout(p=dropout),    
-            nn.Linear(1, num_classes),  #changed last_channel = 1
-        )
+        # # building classifier
+        # self.classifier = nn.Sequential(
+        #     nn.Dropout(p=dropout),    
+        #     nn.Linear(1, num_classes),  #changed last_channel = 1
+        # )
 
         self._initialize_weights()
 
     def forward(self, x):
         x = self.features(x)
         x = x.mean(3).mean(2)
-        x = self.classifier(x)
+        # x = self.classifier(x)
         return x
 
     def _initialize_weights(self):
