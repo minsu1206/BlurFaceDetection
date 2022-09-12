@@ -7,6 +7,7 @@ from models.squeezenet import *
 from models.mobilenetv2 import MobileNetV2
 from models.efficientnet import EfficientNetLite
 from models.mobilenetv3 import mobilenetv3
+from models.edgenext import create_edgenext_xx_small
 # except:
 #     from resnet import *
 #     from edgenext import *
@@ -19,6 +20,7 @@ import argparse
 import time
 import os
 import numpy as np
+from timm.models import create_model
 
 def model_build(model_name:str, num_classes:int):
     """
@@ -48,15 +50,8 @@ def model_build(model_name:str, num_classes:int):
     if model_name == 'UEGAN':
         model = UEGAN()
 
-    if model_name == 'edgenext_xx_small':
-        model = edgenext_xx_small(num_classes=num_classes)
-    
-    # if model_name == 'cspdarknet53':
-    #     model = CSPDarknet53(
-    #         num_classes=num_classes, stem_channels=16,
-    #         feature_channels=[64, 64, 64, 64, 64],
-    #         branches=[2, 4, 4, 2]
-    #     )
+    if model_name == 'edgenext':
+        model = create_edgenext_xx_small(num_classes=num_classes)
     
     if model_name == 'efficientnetlite':
         model = EfficientNetLite(num_classes=num_classes)

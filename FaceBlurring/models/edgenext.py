@@ -1,37 +1,42 @@
+from timm.models.registry import register_model
+import torch
+import torch.nn.functional as F
+from torch import nn
 import math
 import torch
-from collections import OrderedDict
-from functools import partial
-from typing import Tuple
-
 from torch import nn
-import torch.nn.functional as F
-
-from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
-from timm.models.fx_features import register_notrace_module
-from timm.models.layers import trunc_normal_tf_, DropPath, LayerNorm2d, Mlp, SelectAdaptivePool2d, create_conv2d
-from timm.models.helpers import named_apply, build_model_with_cfg, checkpoint_seq
+from timm.models.layers import DropPath, trunc_normal_
+import math
 from timm.models import create_model
+"""
+-- Main Models
+    XX-Small -> 1.3M
+    X-Small -> 2.3M
+    Small -> 5.6M
+"""
 
-def _cfg(url='', **kwargs):
-    return {
-        'url': url,
-        'num_classes': 1000, 'input_size': (3, 256, 256), 'pool_size': (8, 8),
-        'crop_pct': 0.9, 'interpolation': 'bicubic',
-        'mean': IMAGENET_DEFAULT_MEAN, 'std': IMAGENET_DEFAULT_STD,
-        'first_conv': 'stem.0', 'classifier': 'head.fc',
-        **kwargs
-    }
+class LayerNorm(nn.Module):
+    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(normalized_shape))
+        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.eps = eps
+        self.data_format = data_format
+        if self.data_format not in ["channels_last", "channels_first"]:
+            raise NotImplementedError
+        self.normalized_shape = (normalized_shape,)
+
+    def forward(self, x):
+        if self.data_format == "channels_last":
+            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        elif self.data_format == "channels_first":
+            u = x.mean(1, keepdim=True)
+            s = (x - u).pow(2).mean(1, keepdim=True)
+            x = (x - u) / torch.sqrt(s + self.eps)
+            x = self.weight[:, None, None] * x + self.bias[:, None, None]
+            return x
 
 
-default_cfgs = dict(
-    edgenext_xx_small=_cfg(
-        url="https://github.com/mmaaz60/EdgeNeXt/releases/download/v1.0/edgenext_xx_small.pth",
-        test_input_size=(3, 288, 288), test_crop_pct=1.0),
-)
-
-
-@register_notrace_module  # reason: FX can't symbolically trace torch.arange in forward method
 class PositionalEncodingFourier(nn.Module):
     def __init__(self, hidden_dim=32, dim=768, temperature=10000):
         super().__init__()
@@ -41,81 +46,235 @@ class PositionalEncodingFourier(nn.Module):
         self.hidden_dim = hidden_dim
         self.dim = dim
 
-    def forward(self, shape: Tuple[int, int, int]):
-        inv_mask = ~torch.zeros(shape).to(device=self.token_projection.weight.device, dtype=torch.bool)
-        y_embed = inv_mask.cumsum(1, dtype=torch.float32)
-        x_embed = inv_mask.cumsum(2, dtype=torch.float32)
+    def forward(self, B, H, W):
+        mask = torch.zeros(B, H, W).bool().to(self.token_projection.weight.device)
+        not_mask = ~mask
+        y_embed = not_mask.cumsum(1, dtype=torch.float32)
+        x_embed = not_mask.cumsum(2, dtype=torch.float32)
         eps = 1e-6
         y_embed = y_embed / (y_embed[:, -1:, :] + eps) * self.scale
         x_embed = x_embed / (x_embed[:, :, -1:] + eps) * self.scale
 
-        dim_t = torch.arange(self.hidden_dim, dtype=torch.float32, device=inv_mask.device)
+        dim_t = torch.arange(self.hidden_dim, dtype=torch.float32, device=mask.device)
         dim_t = self.temperature ** (2 * torch.div(dim_t, 2, rounding_mode='floor') / self.hidden_dim)
 
         pos_x = x_embed[:, :, :, None] / dim_t
         pos_y = y_embed[:, :, :, None] / dim_t
-        pos_x = torch.stack(
-            (pos_x[:, :, :, 0::2].sin(),
-             pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
-        pos_y = torch.stack(
-            (pos_y[:, :, :, 0::2].sin(),
-             pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
+        pos_x = torch.stack((pos_x[:, :, :, 0::2].sin(),
+                             pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
+        pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(),
+                             pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
         pos = self.token_projection(pos)
 
         return pos
 
 
-class ConvBlock(nn.Module):
-    def __init__(
-            self,
-            dim,
-            dim_out=None,
-            kernel_size=7,
-            stride=1,
-            conv_bias=True,
-            expand_ratio=4,
-            ls_init_value=1e-6,
-            norm_layer=partial(nn.LayerNorm, eps=1e-6),
-            act_layer=nn.GELU, drop_path=0.,
-    ):
-        super().__init__()
-        dim_out = dim_out or dim
-        self.shortcut_after_dw = stride > 1 or dim != dim_out
 
-        self.conv_dw = create_conv2d(
-            dim, dim_out, kernel_size=kernel_size, stride=stride, depthwise=True, bias=conv_bias)
-        self.norm = norm_layer(dim_out)
-        self.mlp = Mlp(dim_out, int(expand_ratio * dim_out), act_layer=act_layer)
-        self.gamma = nn.Parameter(ls_init_value * torch.ones(dim_out)) if ls_init_value > 0 else None
+class ConvEncoder(nn.Module):
+    def __init__(self, dim, drop_path=0., layer_scale_init_value=1e-6, expan_ratio=4, kernel_size=7):
+        super().__init__()
+        self.dwconv = nn.Conv2d(dim, dim, kernel_size=kernel_size, padding=kernel_size // 2, groups=dim)
+        self.norm = LayerNorm(dim, eps=1e-6)
+        self.pwconv1 = nn.Linear(dim, expan_ratio * dim)
+        self.act = nn.GELU()
+        self.pwconv2 = nn.Linear(expan_ratio * dim, dim)
+        self.gamma = nn.Parameter(layer_scale_init_value * torch.ones(dim),
+                                  requires_grad=True) if layer_scale_init_value > 0 else None
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
     def forward(self, x):
-        shortcut = x
-        x = self.conv_dw(x)
-        if self.shortcut_after_dw:
-            shortcut = x
-
+        input = x
+        x = self.dwconv(x)
         x = x.permute(0, 2, 3, 1)  # (N, C, H, W) -> (N, H, W, C)
         x = self.norm(x)
-        x = self.mlp(x)
+        x = self.pwconv1(x)
+        x = self.act(x)
+        x = self.pwconv2(x)
         if self.gamma is not None:
             x = self.gamma * x
         x = x.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
 
-        x = shortcut + self.drop_path(x)
+        x = input + self.drop_path(x)
         return x
 
 
-class CrossCovarianceAttn(nn.Module):
-    def __init__(
-            self,
-            dim,
-            num_heads=8,
-            qkv_bias=False,
-            attn_drop=0.,
-            proj_drop=0.
-    ):
+class ConvEncoderBNHS(nn.Module):
+    """
+        Conv. Encoder with Batch Norm and Hard-Swish Activation
+    """
+    def __init__(self, dim, drop_path=0., layer_scale_init_value=1e-6, expan_ratio=4, kernel_size=7):
+        super().__init__()
+        self.dwconv = nn.Conv2d(dim, dim, kernel_size=kernel_size, padding=kernel_size // 2, groups=dim, bias=False)
+        self.norm = nn.BatchNorm2d(dim)
+        self.pwconv1 = nn.Linear(dim, expan_ratio * dim)
+        self.act = nn.Hardswish()
+        self.pwconv2 = nn.Linear(expan_ratio * dim, dim)
+        self.gamma = nn.Parameter(layer_scale_init_value * torch.ones(dim),
+                                  requires_grad=True) if layer_scale_init_value > 0 else None
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+
+    def forward(self, x):
+        input = x
+        x = self.dwconv(x)
+        x = self.norm(x)
+        x = x.permute(0, 2, 3, 1)  # (N, C, H, W) -> (N, H, W, C)
+        x = self.pwconv1(x)
+        x = self.act(x)
+        x = self.pwconv2(x)
+        if self.gamma is not None:
+            x = self.gamma * x
+        x = x.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
+
+        x = input + self.drop_path(x)
+        return x
+
+
+class SDTAEncoder(nn.Module):
+    def __init__(self, dim, drop_path=0., layer_scale_init_value=1e-6, expan_ratio=4,
+                 use_pos_emb=True, num_heads=8, qkv_bias=True, attn_drop=0., drop=0., scales=1):
+        super().__init__()
+        width = max(int(math.ceil(dim / scales)), int(math.floor(dim // scales)))
+        self.width = width
+        if scales == 1:
+            self.nums = 1
+        else:
+            self.nums = scales - 1
+        convs = []
+        for i in range(self.nums):
+            convs.append(nn.Conv2d(width, width, kernel_size=3, padding=1, groups=width))
+        self.convs = nn.ModuleList(convs)
+
+        self.pos_embd = None
+        if use_pos_emb:
+            self.pos_embd = PositionalEncodingFourier(dim=dim)
+        self.norm_xca = LayerNorm(dim, eps=1e-6)
+        self.gamma_xca = nn.Parameter(layer_scale_init_value * torch.ones(dim),
+                                      requires_grad=True) if layer_scale_init_value > 0 else None
+        self.xca = XCA(dim, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=drop)
+
+        self.norm = LayerNorm(dim, eps=1e-6)
+        self.pwconv1 = nn.Linear(dim, expan_ratio * dim)  # pointwise/1x1 convs, implemented with linear layers
+        self.act = nn.GELU()  # TODO: MobileViT is using 'swish'
+        self.pwconv2 = nn.Linear(expan_ratio * dim, dim)
+        self.gamma = nn.Parameter(layer_scale_init_value * torch.ones((dim)),
+                                  requires_grad=True) if layer_scale_init_value > 0 else None
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+
+    def forward(self, x):
+        input = x
+
+        spx = torch.split(x, self.width, 1)
+        for i in range(self.nums):
+            if i == 0:
+                sp = spx[i]
+            else:
+                sp = sp + spx[i]
+            sp = self.convs[i](sp)
+            if i == 0:
+                out = sp
+            else:
+                out = torch.cat((out, sp), 1)
+        x = torch.cat((out, spx[self.nums]), 1)
+        # XCA
+        B, C, H, W = x.shape
+        x = x.reshape(B, C, H * W).permute(0, 2, 1)
+        if self.pos_embd:
+            pos_encoding = self.pos_embd(B, H, W).reshape(B, -1, x.shape[1]).permute(0, 2, 1)
+            x = x + pos_encoding
+        x = x + self.drop_path(self.gamma_xca * self.xca(self.norm_xca(x)))
+        x = x.reshape(B, H, W, C)
+
+        # Inverted Bottleneck
+        x = self.norm(x)
+        x = self.pwconv1(x)
+        x = self.act(x)
+        x = self.pwconv2(x)
+        if self.gamma is not None:
+            x = self.gamma * x
+        x = x.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
+
+        x = input + self.drop_path(x)
+
+        return x
+
+
+class SDTAEncoderBNHS(nn.Module):
+    """
+        SDTA Encoder with Batch Norm and Hard-Swish Activation
+    """
+    def __init__(self, dim, drop_path=0., layer_scale_init_value=1e-6, expan_ratio=4,
+                 use_pos_emb=True, num_heads=8, qkv_bias=True, attn_drop=0., drop=0., scales=1):
+        super().__init__()
+        width = max(int(math.ceil(dim / scales)), int(math.floor(dim // scales)))
+        self.width = width
+        if scales == 1:
+            self.nums = 1
+        else:
+            self.nums = scales - 1
+        convs = []
+        for i in range(self.nums):
+            convs.append(nn.Conv2d(width, width, kernel_size=3, padding=1, groups=width))
+        self.convs = nn.ModuleList(convs)
+
+        self.pos_embd = None
+        if use_pos_emb:
+            self.pos_embd = PositionalEncodingFourier(dim=dim)
+        self.norm_xca = nn.BatchNorm2d(dim)
+        self.gamma_xca = nn.Parameter(layer_scale_init_value * torch.ones(dim),
+                                      requires_grad=True) if layer_scale_init_value > 0 else None
+        self.xca = XCA(dim, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=drop)
+
+        self.norm = nn.BatchNorm2d(dim)
+        self.pwconv1 = nn.Linear(dim, expan_ratio * dim)  # pointwise/1x1 convs, implemented with linear layers
+        self.act = nn.Hardswish()  # TODO: MobileViT is using 'swish'
+        self.pwconv2 = nn.Linear(expan_ratio * dim, dim)
+        self.gamma = nn.Parameter(layer_scale_init_value * torch.ones((dim)),
+                                  requires_grad=True) if layer_scale_init_value > 0 else None
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+
+    def forward(self, x):
+        input = x
+
+        spx = torch.split(x, self.width, 1)
+        for i in range(self.nums):
+            if i == 0:
+                sp = spx[i]
+            else:
+                sp = sp + spx[i]
+            sp = self.convs[i](sp)
+            if i == 0:
+                out = sp
+            else:
+                out = torch.cat((out, sp), 1)
+        x = torch.cat((out, spx[self.nums]), 1)
+        # XCA
+        x = self.norm_xca(x)
+        B, C, H, W = x.shape
+        x = x.reshape(B, C, H * W).permute(0, 2, 1)
+        if self.pos_embd:
+            pos_encoding = self.pos_embd(B, H, W).reshape(B, -1, x.shape[1]).permute(0, 2, 1)
+            x = x + pos_encoding
+        x = x + self.drop_path(self.gamma_xca * self.xca(x))
+        x = x.reshape(B, H, W, C).permute(0, 3, 1, 2)
+
+        # Inverted Bottleneck
+        x = self.norm(x)
+        x = x.permute(0, 2, 3, 1)  # (N, C, H, W) -> (N, H, W, C)
+        x = self.pwconv1(x)
+        x = self.act(x)
+        x = self.pwconv2(x)
+        if self.gamma is not None:
+            x = self.gamma * x
+        x = x.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
+
+        x = input + self.drop_path(x)
+
+        return x
+
+
+class XCA(nn.Module):
+    def __init__(self, dim, num_heads=8, qkv_bias=False, attn_drop=0., proj_drop=0.):
         super().__init__()
         self.num_heads = num_heads
         self.temperature = nn.Parameter(torch.ones(num_heads, 1, 1))
@@ -127,18 +286,27 @@ class CrossCovarianceAttn(nn.Module):
 
     def forward(self, x):
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, -1).permute(2, 0, 3, 4, 1)
-        q, k, v = qkv.unbind(0)
+        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads)
+        qkv = qkv.permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
 
-        # NOTE, this is NOT spatial attn, q, k, v are B, num_heads, C, L -->  C x C attn map
-        attn = (F.normalize(q, dim=-1) @ F.normalize(k, dim=-1).transpose(-2, -1)) * self.temperature
+        q = q.transpose(-2, -1)
+        k = k.transpose(-2, -1)
+        v = v.transpose(-2, -1)
+
+        q = torch.nn.functional.normalize(q, dim=-1)
+        k = torch.nn.functional.normalize(k, dim=-1)
+
+        attn = (q @ k.transpose(-2, -1)) * self.temperature
+        # -------------------
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
         x = (attn @ v).permute(0, 3, 1, 2).reshape(B, N, C)
-
+        # ------------------
         x = self.proj(x)
         x = self.proj_drop(x)
+
         return x
 
     @torch.jit.ignore
@@ -146,348 +314,126 @@ class CrossCovarianceAttn(nn.Module):
         return {'temperature'}
 
 
-class SplitTransposeBlock(nn.Module):
-    def __init__(
-            self,
-            dim,
-            num_scales=1,
-            num_heads=8,
-            expand_ratio=4,
-            use_pos_emb=True,
-            conv_bias=True,
-            qkv_bias=True,
-            ls_init_value=1e-6,
-            norm_layer=partial(nn.LayerNorm, eps=1e-6),
-            act_layer=nn.GELU,
-            drop_path=0.,
-            attn_drop=0.,
-            proj_drop=0.
-    ):
+class EdgeNeXtBNHS(nn.Module):
+    def __init__(self, in_chans=3, num_classes=1000,
+                 depths=[3, 3, 9, 3], dims=[96, 192, 384, 768],
+                 global_block=[0, 0, 0, 3], global_block_type=['None', 'None', 'None', 'SDTA_BN_HS'],
+                 drop_path_rate=0., layer_scale_init_value=1e-6, head_init_scale=1., expan_ratio=4,
+                 kernel_sizes=[7, 7, 7, 7], heads=[8, 8, 8, 8], use_pos_embd_xca=[False, False, False, False],
+                 use_pos_embd_global=False, d2_scales=[2, 3, 4, 5], **kwargs):
         super().__init__()
-        width = max(int(math.ceil(dim / num_scales)), int(math.floor(dim // num_scales)))
-        self.width = width
-        self.num_scales = max(1, num_scales - 1)
+        for g in global_block_type:
+            assert g in ['None', 'SDTA_BN_HS']
 
-        convs = []
-        for i in range(self.num_scales):
-            convs.append(create_conv2d(width, width, kernel_size=3, depthwise=True, bias=conv_bias))
-        self.convs = nn.ModuleList(convs)
-
-        self.pos_embd = None
-        if use_pos_emb:
-            self.pos_embd = PositionalEncodingFourier(dim=dim)
-        self.norm_xca = norm_layer(dim)
-        self.gamma_xca = nn.Parameter(ls_init_value * torch.ones(dim)) if ls_init_value > 0 else None
-        self.xca = CrossCovarianceAttn(
-            dim, num_heads=num_heads, qkv_bias=qkv_bias, attn_drop=attn_drop, proj_drop=proj_drop)
-
-        self.norm = norm_layer(dim, eps=1e-6)
-        self.mlp = Mlp(dim, int(expand_ratio * dim), act_layer=act_layer)
-        self.gamma = nn.Parameter(ls_init_value * torch.ones(dim)) if ls_init_value > 0 else None
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-
-    def forward(self, x):
-        shortcut = x
-
-        # scales code re-written for torchscript as per my res2net fixes -rw
-        # NOTE torch.split(x, self.width, 1) causing issues with ONNX export
-        spx = x.chunk(len(self.convs) + 1, dim=1)
-        spo = []
-        sp = spx[0]
-        for i, conv in enumerate(self.convs):
-            if i > 0:
-                sp = sp + spx[i]
-            sp = conv(sp)
-            spo.append(sp)
-        spo.append(spx[-1])
-        x = torch.cat(spo, 1)
-
-        # XCA
-        B, C, H, W = x.shape
-        x = x.reshape(B, C, H * W).permute(0, 2, 1)
-        if self.pos_embd is not None:
-            pos_encoding = self.pos_embd((B, H, W)).reshape(B, -1, x.shape[1]).permute(0, 2, 1)
-            x = x + pos_encoding
-        x = x + self.drop_path(self.gamma_xca * self.xca(self.norm_xca(x)))
-        x = x.reshape(B, H, W, C)
-
-        # Inverted Bottleneck
-        x = self.norm(x)
-        x = self.mlp(x)
-        if self.gamma is not None:
-            x = self.gamma * x
-        x = x.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
-
-        x = shortcut + self.drop_path(x)
-        return x
-
-
-class EdgeNeXtStage(nn.Module):
-    def __init__(
-            self,
-            in_chs,
-            out_chs,
-            stride=2,
-            depth=2,
-            num_global_blocks=1,
-            num_heads=4,
-            scales=2,
-            kernel_size=7,
-            expand_ratio=4,
-            use_pos_emb=False,
-            downsample_block=False,
-            conv_bias=True,
-            ls_init_value=1.0,
-            drop_path_rates=None,
-            norm_layer=LayerNorm2d,
-            norm_layer_cl=partial(nn.LayerNorm, eps=1e-6),
-            act_layer=nn.GELU
-    ):
-        super().__init__()
-        self.grad_checkpointing = False
-
-        if downsample_block or stride == 1:
-            self.downsample = nn.Identity()
+        if use_pos_embd_global:
+            self.pos_embd = PositionalEncodingFourier(dim=dims[0])
         else:
-            self.downsample = nn.Sequential(
-                norm_layer(in_chs),
-                nn.Conv2d(in_chs, out_chs, kernel_size=2, stride=2, bias=conv_bias)
-            )
-            in_chs = out_chs
+            self.pos_embd = None
 
-        stage_blocks = []
-        for i in range(depth):
-            if i < depth - num_global_blocks:
-                stage_blocks.append(
-                    ConvBlock(
-                        dim=in_chs,
-                        dim_out=out_chs,
-                        stride=stride if downsample_block and i == 0 else 1,
-                        conv_bias=conv_bias,
-                        kernel_size=kernel_size,
-                        expand_ratio=expand_ratio,
-                        ls_init_value=ls_init_value,
-                        drop_path=drop_path_rates[i],
-                        norm_layer=norm_layer_cl,
-                        act_layer=act_layer,
-                    )
-                )
-            else:
-                stage_blocks.append(
-                    SplitTransposeBlock(
-                        dim=in_chs,
-                        num_scales=scales,
-                        num_heads=num_heads,
-                        expand_ratio=expand_ratio,
-                        use_pos_emb=use_pos_emb,
-                        conv_bias=conv_bias,
-                        ls_init_value=ls_init_value,
-                        drop_path=drop_path_rates[i],
-                        norm_layer=norm_layer_cl,
-                        act_layer=act_layer,
-                    )
-                )
-            in_chs = out_chs
-        self.blocks = nn.Sequential(*stage_blocks)
-
-    def forward(self, x):
-        x = self.downsample(x)
-        if self.grad_checkpointing and not torch.jit.is_scripting():
-            x = checkpoint_seq(self.blocks, x)
-        else:
-            x = self.blocks(x)
-        return x
-
-
-class EdgeNeXt(nn.Module):
-    def __init__(
-            self,
-            in_chans=3,
-            num_classes=1000,
-            global_pool='avg',
-            dims=(24, 48, 88, 168),
-            depths=(3, 3, 9, 3),
-            global_block_counts=(0, 1, 1, 1),
-            kernel_sizes=(3, 5, 7, 9),
-            heads=(8, 8, 8, 8),
-            d2_scales=(2, 2, 3, 4),
-            use_pos_emb=(False, True, False, False),
-            ls_init_value=1e-6,
-            head_init_scale=1.,
-            expand_ratio=4,
-            downsample_block=False,
-            conv_bias=True,
-            stem_type='patch',
-            head_norm_first=False,
-            act_layer=nn.GELU,
-            drop_path_rate=0.,
-            drop_rate=0.,
-    ):
-        super().__init__()
-        self.num_classes = num_classes
-        self.global_pool = global_pool
-        self.drop_rate = drop_rate
-        norm_layer = partial(LayerNorm2d, eps=1e-6)
-        norm_layer_cl = partial(nn.LayerNorm, eps=1e-6)
-        self.feature_info = []
-
-        assert stem_type in ('patch', 'overlap')
-        if stem_type == 'patch':
-            self.stem = nn.Sequential(
-                nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4, bias=conv_bias),
-                norm_layer(dims[0]),
-            )
-        else:
-            self.stem = nn.Sequential(
-                nn.Conv2d(in_chans, dims[0], kernel_size=9, stride=4, padding=9 // 2, bias=conv_bias),
-                norm_layer(dims[0]),
-            )
-
-        curr_stride = 4
-        stages = []
-        dp_rates = [x.tolist() for x in torch.linspace(0, drop_path_rate, sum(depths)).split(depths)]
-        in_chs = dims[0]
-        for i in range(4):
-            stride = 2 if curr_stride == 2 or i > 0 else 1
-            # FIXME support dilation / output_stride
-            curr_stride *= stride
-            stages.append(EdgeNeXtStage(
-                in_chs=in_chs,
-                out_chs=dims[i],
-                stride=stride,
-                depth=depths[i],
-                num_global_blocks=global_block_counts[i],
-                num_heads=heads[i],
-                drop_path_rates=dp_rates[i],
-                scales=d2_scales[i],
-                expand_ratio=expand_ratio,
-                kernel_size=kernel_sizes[i],
-                use_pos_emb=use_pos_emb[i],
-                ls_init_value=ls_init_value,
-                downsample_block=downsample_block,
-                conv_bias=conv_bias,
-                norm_layer=norm_layer,
-                norm_layer_cl=norm_layer_cl,
-                act_layer=act_layer,
-            ))
-            # NOTE feature_info use currently assumes stage 0 == stride 1, rest are stride 2
-            in_chs = dims[i]
-            self.feature_info += [dict(num_chs=in_chs, reduction=curr_stride, module=f'stages.{i}')]
-
-        self.stages = nn.Sequential(*stages)
-
-        self.num_features = dims[-1]
-        self.norm_pre = norm_layer(self.num_features) if head_norm_first else nn.Identity()
-        self.head = nn.Sequential(OrderedDict([
-                ('global_pool', SelectAdaptivePool2d(pool_type=global_pool)),
-                ('norm', nn.Identity() if head_norm_first else norm_layer(self.num_features)),
-                ('flatten', nn.Flatten(1) if global_pool else nn.Identity()),
-                ('drop', nn.Dropout(self.drop_rate)),
-                ('fc', nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity())]))
-
-        named_apply(partial(_init_weights, head_init_scale=head_init_scale), self)
-
-    @torch.jit.ignore
-    def group_matcher(self, coarse=False):
-        return dict(
-            stem=r'^stem',
-            blocks=r'^stages\.(\d+)' if coarse else [
-                (r'^stages\.(\d+)\.downsample', (0,)),  # blocks
-                (r'^stages\.(\d+)\.blocks\.(\d+)', None),
-                (r'^norm_pre', (99999,))
-            ]
+        self.downsample_layers = nn.ModuleList()  # stem and 3 intermediate downsampling conv layers
+        stem = nn.Sequential(
+            nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4, bias=False),
+            nn.BatchNorm2d(dims[0])
         )
+        self.downsample_layers.append(stem)
+        for i in range(3):
+            downsample_layer = nn.Sequential(
+                nn.BatchNorm2d(dims[i]),
+                nn.Conv2d(dims[i], dims[i + 1], kernel_size=2, stride=2, bias=False),
+            )
+            self.downsample_layers.append(downsample_layer)
 
-    @torch.jit.ignore
-    def set_grad_checkpointing(self, enable=True):
-        for s in self.stages:
-            s.grad_checkpointing = enable
+        self.stages = nn.ModuleList()  # 4 feature resolution stages, each consisting of multiple residual blocks
+        dp_rates = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
+        cur = 0
+        for i in range(4):
+            stage_blocks = []
+            for j in range(depths[i]):
+                if j > depths[i] - global_block[i] - 1:
+                    if global_block_type[i] == 'SDTA_BN_HS':
+                        stage_blocks.append(SDTAEncoderBNHS(dim=dims[i], drop_path=dp_rates[cur + j],
+                                                            expan_ratio=expan_ratio, scales=d2_scales[i],
+                                                            use_pos_emb=use_pos_embd_xca[i],
+                                                            num_heads=heads[i]))
+                    else:
+                        raise NotImplementedError
+                else:
+                    stage_blocks.append(ConvEncoderBNHS(dim=dims[i], drop_path=dp_rates[cur + j],
+                                                        layer_scale_init_value=layer_scale_init_value,
+                                                        expan_ratio=expan_ratio, kernel_size=kernel_sizes[i]))
 
-    @torch.jit.ignore
-    def get_classifier(self):
-        return self.head.fc
+            self.stages.append(nn.Sequential(*stage_blocks))
+            cur += depths[i]
+        self.norm = nn.BatchNorm2d(dims[-1])
+        self.head = nn.Linear(dims[-1], num_classes)
 
-    def reset_classifier(self, num_classes=0, global_pool=None):
-        if global_pool is not None:
-            self.head.global_pool = SelectAdaptivePool2d(pool_type=global_pool)
-            self.head.flatten = nn.Flatten(1) if global_pool else nn.Identity()
-        self.head.fc = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
+        self.apply(self._init_weights)
+        self.head_dropout = nn.Dropout(kwargs["classifier_dropout"])
+        self.head.weight.data.mul_(head_init_scale)
+        self.head.bias.data.mul_(head_init_scale)
+
+    def _init_weights(self, m):  # TODO: MobileViT is using 'kaiming_normal' for initializing conv layers
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            trunc_normal_(m.weight, std=.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, (LayerNorm, nn.LayerNorm)):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
 
     def forward_features(self, x):
-        x = self.stem(x)
-        x = self.stages(x)
-        x = self.norm_pre(x)
-        return x
-
-    def forward_head(self, x, pre_logits: bool = False):
-        # NOTE nn.Sequential in head broken down since can't call head[:-1](x) in torchscript :(
-        x = self.head.global_pool(x)
-        x = self.head.norm(x)
-        x = self.head.flatten(x)
-        x = self.head.drop(x)
-        return x if pre_logits else self.head.fc(x)
+        x = self.downsample_layers[0](x)
+        x = self.stages[0](x)
+        if self.pos_embd:
+            B, C, H, W = x.shape
+            x = x + self.pos_embd(B, H, W)
+        for i in range(1, 4):
+            x = self.downsample_layers[i](x)
+            x = self.stages[i](x)
+        return self.norm(x).mean([-2, -1])
 
     def forward(self, x):
         x = self.forward_features(x)
-        x = self.forward_head(x)
+        x = self.head(self.head_dropout(x))
         return x
 
 
-def _init_weights(module, name=None, head_init_scale=1.0):
-    if isinstance(module, nn.Conv2d):
-        trunc_normal_tf_(module.weight, std=.02)
-        if module.bias is not None:
-            nn.init.zeros_(module.bias)
-    elif isinstance(module, nn.Linear):
-        trunc_normal_tf_(module.weight, std=.02)
-        nn.init.zeros_(module.bias)
-        if name and 'head.' in name:
-            module.weight.data.mul_(head_init_scale)
-            module.bias.data.mul_(head_init_scale)
 
+@register_model
+def edgenext_xx_small_bn_hs(pretrained=False, **kwargs):
+    # 1.33M & 259.53M @ 256 resolution
+    # 70.33% Top-1 accuracy
+    # For A100: FPS @ BS=1: 219.66 & @ BS=256: 10359.98
+    model = EdgeNeXtBNHS(depths=[2, 2, 6, 2], dims=[24, 48, 88, 168], expan_ratio=4,
+                         global_block=[0, 1, 1, 1],
+                         global_block_type=['None', 'SDTA_BN_HS', 'SDTA_BN_HS', 'SDTA_BN_HS'],
+                         use_pos_embd_xca=[False, True, False, False],
+                         kernel_sizes=[3, 5, 7, 9],
+                         heads=[4, 4, 4, 4],
+                         d2_scales=[2, 2, 3, 4],
+                         **kwargs)
 
-def checkpoint_filter_fn(state_dict, model):
-    """ Remap FB checkpoints -> timm """
-    if 'head.norm.weight' in state_dict or 'norm_pre.weight' in state_dict:
-        return state_dict  # non-FB checkpoint
-
-    # models were released as train checkpoints... :/
-    if 'model_ema' in state_dict:
-        state_dict = state_dict['model_ema']
-    elif 'model' in state_dict:
-        state_dict = state_dict['model']
-    elif 'state_dict' in state_dict:
-        state_dict = state_dict['state_dict']
-
-    out_dict = {}
-    import re
-    for k, v in state_dict.items():
-        k = k.replace('downsample_layers.0.', 'stem.')
-        k = re.sub(r'stages.([0-9]+).([0-9]+)', r'stages.\1.blocks.\2', k)
-        k = re.sub(r'downsample_layers.([0-9]+).([0-9]+)', r'stages.\1.downsample.\2', k)
-        k = k.replace('dwconv', 'conv_dw')
-        k = k.replace('pwconv', 'mlp.fc')
-        k = k.replace('head.', 'head.fc.')
-        if k.startswith('norm.'):
-            k = k.replace('norm', 'head.norm')
-        if v.ndim == 2 and 'head' not in k:
-            model_shape = model.state_dict()[k].shape
-            v = v.reshape(model_shape)
-        out_dict[k] = v
-    return out_dict
-
-
-def _create_edgenext(variant, pretrained=False, **kwargs):
-    model = build_model_with_cfg(
-        EdgeNeXt, variant, pretrained,
-        pretrained_filter_fn=checkpoint_filter_fn,
-        feature_cfg=dict(out_indices=(0, 1, 2, 3), flatten_sequential=True),
-        **kwargs)
     return model
 
 
-##Define Model
-def EdgenextXXSmall(pretrained=False, **kwargs):
-    model_kwargs = dict(depths=(2, 2, 6, 2), dims=(24, 48, 88, 168), heads=(4, 4, 4, 4), **kwargs)
-    return _create_edgenext('edgenext_xx_small', pretrained=pretrained, **model_kwargs)
+def create_edgenext_xx_small(num_classes):
+    model = create_model(
+            'edgenext_xx_small_bn_hs',
+            pretrained=True,
+            num_classes=num_classes,
+            drop_path_rate=0.1,
+            layer_scale_init_value=1e-6,
+            head_init_scale=1.0,
+            input_res=112,
+            classifier_dropout=0.0,
+        )
+    if num_classes > 1:
+        model.head = nn.Sequential(
+            nn.Linear(168, num_classes)
+        )
+    elif num_classes == 1:
+        model.head = nn.Sequential(
+            nn.Linear(168, 1), nn.Sigmoid()
+        )   
+    return model
 

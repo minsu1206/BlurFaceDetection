@@ -15,6 +15,7 @@ from model_factory import model_build
 from loss import *
 
 
+
 def train(cfg, args):
     '''Function for training face blur detection model'''
 
@@ -141,7 +142,7 @@ def train(cfg, args):
             loss.backward()
             optimizer.step()
 
-            # break
+            break
 
         print(f"Epoch #{epoch + 1} >>>> Training loss : {training_loss / len(train_dataloader):.6f}")
 
@@ -170,13 +171,16 @@ def train(cfg, args):
 
                 loss = compute_loss(loss_func, prediction, gt_reg, gt_cls)
                 validation_loss += loss.item()
-                # break
+                break
 
             print(f"(Val)Epoch #{epoch + 1} >>>> Validation loss : {validation_loss / len(val_dataloader):.6f}")
 
         # (2) : Visualization
         if args.viz:
-            visualize(model, img_size, device, epoch, args.save + '/viz')
+            if task_name == 'regression':
+                visualize(model, img_size, device, epoch, args.save + '/viz')
+            elif task_name == 'classification':
+                visualize_cls(model, img_size, device, epoch, num_classes, args.save + '/viz')
 
         # (3) : Checkpoint
         torch.save(

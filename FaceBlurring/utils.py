@@ -166,9 +166,9 @@ def visualize(model, input_size, device, epoch, save_path):
                 sample_path = os.path.join(path, subpath)
                 iter += 1
                 for i in range(1, 101):
-                    try:
+                    try:  
                         blurred_img_fix = cv2.resize(cv2.imread(os.path.join(sample_path, f'fix_{i}.png')),
-                                                     (input_size, input_size), interpolation=cv2.INTER_AREA) / 255
+                                                        (input_size, input_size), interpolation=cv2.INTER_AREA) / 255
                         blurred_img_random = cv2.resize(cv2.imread(os.path.join(sample_path, f'random_{i}.png')),
                                                         (input_size, input_size), interpolation=cv2.INTER_AREA) / 255
 
@@ -180,7 +180,7 @@ def visualize(model, input_size, device, epoch, save_path):
                     except:
                         estimated_random = (cos_mean_random[i - 1] / iter)
                         estimated_fix = (cos_mean_fix[i - 1] / iter)
-
+                        
                     cos_mean_random[i - 1] += estimated_random.item()
                     cos_mean_fix[i - 1] += estimated_fix.item()
             # break
@@ -199,3 +199,79 @@ def visualize(model, input_size, device, epoch, save_path):
         plt.plot(real_mean_random, 'k--', linewidth=2, label="Real(Random $\\theta$)")
         plt.legend(fontsize=15)
         plt.savefig(f"{save_path}/graph_{epoch}.png")
+
+
+def visualize_cls(model, input_size, device, epoch, cls_num, save_path):
+    path = 'data_samples/samples'
+    if not os.path.exists(path):
+        path = os.getcwd() + path
+    
+    random_pkl_path = 'data_samples/random_reference.pkl'
+    if not os.path.exists(random_pkl_path):
+        random_pkl_path = os.getcwd() + random_pkl_path
+
+    fix_pkl_path = 'data_samples/fix_reference.pkl'
+    if not os.path.exists(fix_pkl_path):
+        fix_pkl_path = os.getcwd() + fix_pkl_path
+
+    assert os.path.exists(path) == True
+    assert os.path.exists(random_pkl_path) == True
+    assert os.path.exists(fix_pkl_path) == True
+
+    model.eval()
+    with torch.no_grad():
+        
+        cos_mean_random = np.zeros(100)
+        cos_mean_fix = np.zeros(100)
+
+        with open(random_pkl_path, 'rb') as f:
+            real_mean_random = pickle.load(f)
+
+        with open(fix_pkl_path, 'rb') as f:
+            real_mean_fix = pickle.load(f)
+
+        iter = 0
+        for subpath in tqdm(os.listdir(path)):
+            if os.path.splitext(subpath)[-1] not in ['.png', '.jpg']:
+                sample_path = os.path.join(path, subpath)
+                iter += 1
+                for i in range(1, 101):
+                    try:
+                        blurred_img_fix = cv2.resize(cv2.imread(os.path.join(sample_path, f'fix_{i}.png')),
+                                                     (input_size, input_size), interpolation=cv2.INTER_AREA) / 255
+                        blurred_img_random = cv2.resize(cv2.imread(os.path.join(sample_path, f'random_{i}.png')),
+                                                        (input_size, input_size), interpolation=cv2.INTER_AREA) / 255
+
+                        blurred_img_fix = torch.Tensor(blurred_img_fix).permute(2, 0, 1).unsqueeze(0).to(device)
+                        estimated_fix = model(blurred_img_fix)
+                        _, predicted_fix = torch.max(estimated_fix.data, 1)
+                        
+                        blurred_img_random = torch.Tensor(blurred_img_random).permute(2, 0, 1).unsqueeze(0).to(device)
+                        estimated_random = model(blurred_img_random)
+                        _, predicted_random = torch.max(estimated_random.data, 1)
+                        
+                        estimated_random = predicted_random*(1/cls_num)
+                        estimated_fix = predicted_fix*(1/cls_num)
+
+                    except:
+                        estimated_random = (cos_mean_random[i - 1] / iter)
+                        estimated_fix = (cos_mean_fix[i - 1] / iter)
+
+                    cos_mean_random[i - 1] += estimated_random.item()
+                    cos_mean_fix[i - 1] += estimated_fix.item()
+
+        cos_mean_fix /= 30
+        cos_mean_random /= 30
+
+        plt.figure(figsize=(24, 7))
+        plt.subplot(1, 2, 1)
+        plt.plot(cos_mean_fix, 'k', linewidth=2, label="Estimated(Fix $\\theta$)")
+        plt.plot(real_mean_fix, 'k--', linewidth=2, label="Real(Fix $\\theta$)")
+        plt.legend(fontsize=15)
+
+        plt.subplot(1, 2, 2)
+        plt.plot(cos_mean_random, 'k', linewidth=2, label="Estimated(Random $\\theta$)")
+        plt.plot(real_mean_random, 'k--', linewidth=2, label="Real(Random $\\theta$)")
+        plt.legend(fontsize=15)
+        plt.savefig(f"{save_path}/graph_{epoch}_cls_{cls_num}_visualize.png")
+        plt.close()
