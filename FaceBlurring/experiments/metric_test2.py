@@ -96,4 +96,4 @@ if __name__ == '__main__':
     plt.axis('off')
     plt.title(f"Cosine similarity : {cossim2:.2f}", fontsize=15)
 
-    plt.savefig('./blur_random_cosine')
+    plt.savefig('./blur_random_cosine') # FIXME

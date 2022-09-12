@@ -64,6 +64,7 @@ if __name__ == '__main__':
 	parser.add_argument('--label', type=str, help='choose label metric')
 	parser.add_argument('--option', type=str, help='choose model(deepface, facenet)')
 	parser.add_argument('--model', type=str, help="VGG-Face, Facenet, OpenFace, DeepFace, DeepID, Dlib, ArcFace")
+	# TODO path 추가
 	args = parser.parse_args()
 	samples, labels = get_n_sort_samples(args.label)
 
