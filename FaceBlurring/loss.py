@@ -22,8 +22,17 @@ class ProbBasedMSE(nn.Module):
         loss = torch.mean(diff_tensor*torch.sigmoid(prob)) # probability based mse error
         return loss
 
+##########################################################
+# from HuberLoss
+##########################################################
+class HuberLoss(nn.Module):
+    def __init__(self, device):
+        super().__init__()
+        self.device = device
+        self.func = nn.HuberLoss().to(self.device)
 
-
+    def forward(self, pred, reg_label):
+        return self.func(pred, reg_label.view(-1, 1))
 
 
 

@@ -58,17 +58,13 @@ def ssim(img1, img2):
 
 
 def cos_sim(A, B):
+    # A, B should be feature vector from face recognition
     return np.dot(A, B) / (np.linalg.norm(A) * np.linalg.norm(B))
 
 
-def center_crop(source, dst_size):
-    H, W, C = source.shape
-    assert H >= dst_size and W >= dst_size, 'the dimension should be bigger than dst size'
-    H_diff, W_diff = H - dst_size, W - dst_size
-    return source[H_diff // 2:H_diff // 2 + dst_size, W_diff // 2:W_diff // 2 + dst_size, :]
-
 
 if __name__ == '__main__':
+    print("Please check data path & save path")
     ref = cv2.imread('./data/FFHQ_1024/clean/00595/random_0.png')
     image_sample1 = cv2.imread('./data/FFHQ_1024/clean/00595/random_78.png')
     image_sample2 = cv2.imread('./data/FFHQ_1024/clean/00595/random_97.png')
@@ -86,14 +82,18 @@ if __name__ == '__main__':
     cossim2 = cos_sim(emb_clean.squeeze(0).detach().numpy(), emb_blur2.squeeze(0).detach().numpy())
 
     plt.figure(figsize=(10, 5))
-    plt.subplot(1, 2, 1)
+    plt.subplot(1, 3, 1)
+    plt.imshow(cv2.cvtColor(ref, cv2.COLOR_BGR2RGB))
+    plt.axis('off')
+    plt.title('Clean image')
+    plt.subplot(1, 3, 2)
     plt.imshow(cv2.cvtColor(image_sample1, cv2.COLOR_BGR2RGB))
     plt.axis('off')
     plt.title(f"Cosine similarity : {cossim1:.2f}", fontsize=15)
 
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 3, 3)
     plt.imshow(cv2.cvtColor(image_sample2, cv2.COLOR_BGR2RGB))
     plt.axis('off')
     plt.title(f"Cosine similarity : {cossim2:.2f}", fontsize=15)
 
-    plt.savefig('./blur_random_cosine') # FIXME
+    plt.savefig('results/distance_test/blur_cosine_compare.png')

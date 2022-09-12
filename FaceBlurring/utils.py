@@ -21,7 +21,7 @@ def build_loss_func(loss_dict, device):
         func = None
         # Task : Regression
         if key == 'huber':
-            func = nn.HuberLoss()
+            func = HuberLoss(device=device)
 
         if key == 'mse':
             func = nn.MSELoss()
