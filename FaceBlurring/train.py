@@ -26,8 +26,8 @@ def train(cfg, args):
     exp_name = cfg['exp_name']
     task_name = cfg['task_name']
     num_classes = None
-    if 'num_classes' in cfg['task_name']:
-        num_classes = cfg['task_name']['num_classes']
+    if 'num_classes' in cfg:
+        num_classes = cfg['num_classes']
     device = args.device
 
     # (1) : dataset
@@ -48,8 +48,10 @@ def train(cfg, args):
                                 transforms.RandomHorizontalFlip(0.5)
                             ])
 
-    train_dataset = FaceDataset(train_csv_path, dataset_metric, transform, img_size, 'rgb', num_classes=num_classes)
-    val_dataset = FaceDatasetVal(val_csv_path, dataset_metric, transform, img_size, 'rgb', num_classes=num_classes)
+    train_dataset = FaceDataset(
+        train_csv_path, dataset_metric, transform, img_size, 'rgb', task=task_name, num_classes=num_classes)
+    val_dataset = FaceDatasetVal(
+        val_csv_path, dataset_metric, transform, img_size, 'rgb', task=task_name,num_classes=num_classes)
     
     # Check number of each dataset size
     print(f"Training dataset size : {len(train_dataset)}")
@@ -64,7 +66,6 @@ def train(cfg, args):
     ##########################################################
 
     if task_name == 'classification':
-        num_classes = cfg['task_name']['n_cls']
         model = model_build(model_name=model_name, num_classes=num_classes)
     else:
         model = model_build(model_name=model_name, num_classes=1)
@@ -124,10 +125,11 @@ def train(cfg, args):
             image = image.to(device)
             
             if task_name == 'classification':   # classification
-                gt_cls = batch[1]
+                gt_cls = batch[1][0]
                 gt_cls = gt_cls.to(device)
-                gt_reg = batch[2]
+                gt_reg = batch[1][1]
                 gt_reg = gt_reg.to(device)
+
             elif task_name == 'regression':
                 gt_reg = batch[1]
                 gt_reg = gt_reg.to(device)
@@ -156,9 +158,9 @@ def train(cfg, args):
                 image = image.to(device)
                 
                 if task_name == 'classification':
-                    gt_cls = batch[1]
+                    gt_cls = batch[1][0]
                     gt_cls = gt_cls.to(device)
-                    gt_reg = batch[2]
+                    gt_reg = batch[1][1]
                     gt_reg = gt_reg.to(device)
                 elif task_name == 'regression':
                     gt_reg = batch[1]

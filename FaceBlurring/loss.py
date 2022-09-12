@@ -9,16 +9,18 @@ import torch.nn as nn
 # from WeightedMSELoss
 ##########################################################
 class ProbBasedMSE(nn.Module):
-    def __init__(self, num_classes=20):
-        super(WeightedMSELoss, self).__init__()
+    def __init__(self, num_classes=20, device='cpu'):
+        super(ProbBasedMSE, self).__init__()
         # self.c1 = nn.CrossEntropyLoss().to("cuda" if torch.cuda.is_available else 'cpu')
         self.cls = torch.arange(1/(num_classes*2), 1, 1/num_classes)
-        
-    def forward(self, prob, cls_label, reg_label):
-        self.cls_rep = self.cls.repeat(prob.size(0), 1)
+        self.device = device
+
+    def forward(self, prob, reg_label):
+        reg_label = reg_label.view(-1, 1)
+        self.cls_rep = self.cls.repeat(prob.size(0), 1).to(self.device)
         diff_tensor = torch.sqrt(torch.square(reg_label-self.cls_rep))
         loss = torch.mean(diff_tensor*torch.sigmoid(prob)) # probability based mse error
-        return loss2
+        return loss
 
 
 

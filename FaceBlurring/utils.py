@@ -6,7 +6,7 @@ import pickle5 as pickle
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-
+from loss import *
 ##########################################################
 #                  Functions about Loss                  #
 ##########################################################
@@ -29,8 +29,8 @@ def build_loss_func(loss_dict, device):
         if key == 'l1':
             func = nn.L1Loss()
 
-        if key == 'prob_mse':
-            func = ProbBasedMSE()
+        if key == 'probbasedmse':
+            func = ProbBasedMSE(device=device)
 
         # Task : Classification
         if key == 'crossentropy':
