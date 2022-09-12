@@ -9,13 +9,8 @@ class EfficientNetLite(nn.Module):
         weights_path = EfficientnetLite0ModelFile.get_model_file_path()
         self.model = EfficientNet.from_pretrained('efficientnet-lite0', weights_path=weights_path)
         self.model._fc = nn.Sequential(
-            nn.Linear(1280, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU6(),
-            nn.Linear(128, 32),
-            nn.BatchNorm1d(32),
-            nn.ReLU6(),
-            nn.Linear(32, num_classes)
+            nn.Linear(1280, num_classes),
+            nn.Sigmoid()
         )
         self.model._swish = nn.Sequential()
 

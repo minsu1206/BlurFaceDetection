@@ -1,78 +1,167 @@
 import os
-
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import pickle
+import pickle5 as pickle
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
-def build_loss_func(cfg):
-    '''Return loss function'''
-    model_name = cfg['train']['model']
-    if model_name == 'resnet_cls':
-        loss_name_list = [cfg['train']['loss1'], cfg['train']['loss2']]
-        loss_func = []
-        for loss_name in loss_name_list:
-            if loss_name == 'huber':
-                loss_func.append(nn.HuberLoss())
+##########################################################
+#                  Functions about Loss                  #
+##########################################################
 
-            if loss_name == 'cross_entropy':
-                loss_func.append(nn.CrossEntropyLoss())
+def build_loss_func(loss_dict, device):
 
-    else:
-        loss_name = cfg['train']['loss']
-        if loss_name == 'huber':
-            loss_func = nn.HuberLoss()
+    loss_compute_dict = {}
+
+    for key, val in loss_dict.items():
+        key = key.lower()
+        
+        func = None
+        # Task : Regression
+        if key == 'huber':
+            func = nn.HuberLoss()
+
+        if key == 'mse':
+            func = nn.MSELoss()
+
+        if key == 'l1':
+            func = nn.L1Loss()
+
+        if key == 'prob_mse':
+            func = ProbBasedMSE()
+
+        # Task : Classification
+        if key == 'crossentropy':
+            func = nn.CrossEntropyLoss()
+
+        if func == None:
+            raise NotImplementedError(f"{key} is not implemented yet.")
+        weight = val
     
-    return loss_func
+        loss_compute_dict[key] = {'func': func.to(device), 'weight': weight}
 
+    return loss_compute_dict
+
+
+def compute_loss(loss_func, pred, gt_reg, gt_cls):
+    total_loss = 0
+
+    assert pred.get_device() == gt_reg.get_device(), \
+        "Prediction & GT tensor must be in same device"
+    if gt_cls != None:
+        assert pred.get_device() == gt_cls.get_device(), \
+            "Prediction & GT tensor must be in same device"
+
+    for loss_name, loss_dict in loss_func.items():
+
+        if loss_name in ['crossentropy']:
+            loss = loss_dict['func'](pred, gt_cls)
+        else:
+            loss = loss_dict['func'](pred, gt_reg)
+
+        loss *= loss_dict['weight']
+        total_loss += loss
+    
+    return total_loss
+
+##########################################################
+#                  Functions about Optim                 #
+##########################################################
 def build_optim(cfg, model):
-    '''Return optimizer'''
-    optim = cfg['train']['optim']
-    optim = optim.lower()
+    optim_name = cfg['train']['optim']
     lr = cfg['train']['lr']
+    optim_name = optim_name.lower()
 
-    if optim == 'sgd':
-        return torch.optim.SGD(model.parameters(), lr=lr)
+    optim = None
+    if optim_name == 'sgd':
+        optim = torch.optim.SGD(model.parameters(), lr=lr)
     
-    if optim == 'adam':
-        return torch.optim.Adam(model.parameters(), lr=lr)
+    if optim_name == 'adam':
+        optim = torch.optim.Adam(model.parameters(), lr=lr)
 
-    if optim == 'adamw':
-        return torch.optim.AdamW(model.parameters(), lr=lr)
+    if optim_name == 'adamw':
+        optim = torch.optim.AdamW(model.parameters(), lr=lr)
     
-    # TODO : add optimizer
+    # Add optimizer if you want
 
-def build_scheduler(cfg, optim):
-    '''Return learning rate scheduler'''
+    if optim != None:
+        return optim
+    else:
+        raise NotImplementedError(f"{optim_name} is not implemented yet.")
+
+
+##########################################################
+#                  Functions about Scheduler             #
+##########################################################
+def build_scheduler(cfg, optimizer):
     scheduler_dict = cfg['train']['scheduler']
-    scheduler, spec = scheduler_dict.items()
-    scheduler = scheduler.lower()
-    
-    if scheduler == 'multistep':
-        return torch.optim.lr_scheduler.MultiStepLR(optim, milestones=spec["milestones"], gamma=spec["gamma"])
 
-    if scheduler == 'cyclic':
-        return torch.optim.lr_scheduler.CyclicLR(optim, base_lr=spec["base_lr"], max_lr=spec["max_lr"])
-    
-    # TODO : add leraning rate scheduler
+    sch_name = list(scheduler_dict.keys())[0]
+    sch_settings = scheduler_dict[sch_name]
+    sch_name = sch_name.lower()
 
-def visualize(model, input_size, device, epoch):
+    if sch_name == 'multisteplr':
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=sch_settings['milestones'], gamma=sch_settings['gamma']
+        )
+    
+    if sch_name == 'exponentiallr':
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(
+            optimizer, gamma=sch_settings['gamma']
+        )
+
+    if sch_name == 'cossineannealinglr':
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=sch_settings['T_max'], eta_min=sch_settings['eta_min']
+        )
+
+    # Add optimizer if you want
+
+    if sch_name != None:
+        return scheduler
+    else:
+        raise NotImplementedError(f"{optim_name} is not implemented yet.")
+
+
+##########################################################
+#                       Visualize                        #
+##########################################################
+
+def visualize(model, input_size, device, epoch, save_path):
+    path = 'data_samples/samples'
+    if not os.path.exists(path):
+        path = os.getcwd() + path
+    
+    random_pkl_path = 'data_samples/random_reference.pkl'
+    if not os.path.exists(random_pkl_path):
+        random_pkl_path = os.getcwd() + random_pkl_path
+
+    fix_pkl_path = 'data_samples/fix_reference.pkl'
+    if not os.path.exists(fix_pkl_path):
+        fix_pkl_path = os.getcwd() + fix_pkl_path
+
+    assert os.path.exists(path) == True
+    assert os.path.exists(random_pkl_path) == True
+    assert os.path.exists(fix_pkl_path) == True
+
     model.eval()
     with torch.no_grad():
-        path = '/data/faceblur/BlurFaceDetection/FaceBlurring/data_samples/samples'
+        
         cos_mean_random = np.zeros(100)
         cos_mean_fix = np.zeros(100)
 
-        with open('/data/faceblur/BlurFaceDetection/FaceBlurring/data_samples/random_reference.pkl', 'rb') as f:
+        with open(random_pkl_path, 'rb') as f:
             real_mean_random = pickle.load(f)
 
-        with open('/data/faceblur/BlurFaceDetection/FaceBlurring/data_samples/fix_reference.pkl', 'rb') as f:
+        with open(fix_pkl_path, 'rb') as f:
             real_mean_fix = pickle.load(f)
+        
+        print(f"Epoch #{epoch + 1 } >>>> Visualize :")
 
         iter = 0
-        for subpath in os.listdir(path):
+        for subpath in tqdm(os.listdir(path)):
             if os.path.splitext(subpath)[-1] not in ['.png', '.jpg']:
                 sample_path = os.path.join(path, subpath)
                 iter += 1
@@ -94,6 +183,7 @@ def visualize(model, input_size, device, epoch):
 
                     cos_mean_random[i - 1] += estimated_random.item()
                     cos_mean_fix[i - 1] += estimated_fix.item()
+            # break
 
         cos_mean_fix /= 30
         cos_mean_random /= 30
@@ -108,4 +198,4 @@ def visualize(model, input_size, device, epoch):
         plt.plot(cos_mean_random, 'k', linewidth=2, label="Estimated(Random $\\theta$)")
         plt.plot(real_mean_random, 'k--', linewidth=2, label="Real(Random $\\theta$)")
         plt.legend(fontsize=15)
-        plt.savefig(f"graph_{epoch}.png")
+        plt.savefig(f"{save_path}/graph_{epoch}.png")

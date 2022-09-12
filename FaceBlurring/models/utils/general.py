@@ -33,7 +33,10 @@ import torch
 import torchvision
 import yaml
 
-from utils import TryExcept
+try:
+    from utils import TryExcept
+except:
+    from models.utils import TryExcept
 # from utils.downloads import gsutil_getsize
 # from utils.metrics import box_iou, fitness
 

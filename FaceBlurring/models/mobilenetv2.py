@@ -124,9 +124,9 @@ class MobileNetV2(nn.Module):
 
         state_dict = None
         if width_mult == 0.5:
-            state_dict = torch.load('mobilenetv2_0.5_imagenet.pth')
+            state_dict = torch.load('models/mobilenetv2_0.5_imagenet.pth')
         elif width_mult == 0.25:
-            state_dict = torch.load('mobilenetv2_0.25_imagenet.pth')
+            state_dict = torch.load('models/mobilenetv2_0.25_imagenet.pth')
 
         if state_dict != None:
             self.load_state_dict(state_dict)

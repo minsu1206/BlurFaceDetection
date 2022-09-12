@@ -28,7 +28,7 @@ class FaceDatasetVal(Dataset):
         self.paths, self.labels = self._get_training_samples()
         self.metric = metric
         assert metric in self.path_n_label.keys(), 'Not available metric, you have to create label'
-
+        self.transform = transform
         self.task = task
 
         if input_size is None:
@@ -42,7 +42,8 @@ class FaceDatasetVal(Dataset):
         paths, labels = [], []
         for i in range(len(self.path_n_label['filename'])):
             if self.path_n_label['Unnamed: 0'][i]:
-                paths.append('./BlurFaceDetection/FaceBlurring' + self.path_n_label['filename'][i][2:])
+                # paths.append('./BlurFaceDetection/FaceBlurring' + self.path_n_label['filename'][i][2:])
+                paths.append(self.path_n_label['filename'][i])
                 labels.append(self.path_n_label['cosine'][i])
 
         return paths, labels
@@ -52,6 +53,7 @@ class FaceDatasetVal(Dataset):
 
     def __getitem__(self, idx):
         img_path, label = self.paths[idx], self.labels[idx]
+        img_path = img_path.replace('..', os.getcwd())
 
         try:
             if self.cmap == 'gray':
@@ -137,6 +139,7 @@ class FaceDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path, label = self.paths[idx], self.labels[idx]
+        img_path = img_path.replace('..', os.getcwd())
         try:
             if self.cmap == 'gray':
                 image = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2GRAY)

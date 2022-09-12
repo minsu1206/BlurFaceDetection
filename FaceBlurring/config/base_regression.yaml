@@ -1,0 +1,16 @@
+exp_name: sample
+task_name: regression
+dataset:
+  batch: 32
+  train_csv_path: ['data/label_random/label/data_label.csv']
+  val_csv_path: ['data/label_val.csv']
+  metric: 'cosine'
+  image_size: 112
+train:
+  model: 'mobilenetv2_0.5'
+  lr: 0.0001
+  epochs: 100
+  val_iters: 100
+  loss: {'huber':1}
+  optim: 'adamw'
+  scheduler: {'MultiStepLR': {"milestones": [5, 10, 15, 20], "gamma": 0.3}}
