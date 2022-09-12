@@ -195,15 +195,6 @@ if __name__ == "__main__":
     parser.add_argument('--wo', action='store_true')
     args = parser.parse_args()
 
-    # [9/3] 수정
-
-    # [9/3] Test : Batch Forwarding?
-    # dummy = torch.zeros((8, 3, 256, 256)).to(device)
-    # dummy_out = model(dummy)
-    # print(dummy_out.shape)    >> [8, 512]
-    
-    # [9/6] 수정
-    # 
     if args.wo:
         
         # no resize
