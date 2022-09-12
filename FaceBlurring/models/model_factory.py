@@ -8,6 +8,7 @@ try:
     from models.mobilenetv2 import MobileNetV2
     from models.efficientnet import EfficientNetLite
     from models.mobilenetv3 import mobilenetv3
+    print("1")
 except:
     from resnet import *
     from edgenext import *
@@ -17,6 +18,7 @@ except:
     from mobilenetv2 import MobileNetV2
     from efficientnet import EfficientNetLite
     from mobilenetv3 import mobilenetv3
+    print("2")
 import argparse
 import time
 import os
@@ -39,13 +41,13 @@ def model_build(model_name:str, num_classes:int):
     #
 
     if model_name == 'resnet18':
-        model = ResNet(block=ResidualBlock, num_block=[2, 2, 2, 2], num_classes=num_classes)
+        model = ResNet(size=18, num_classes=num_classes)
     
     if model_name == 'resnet34':
-        model = ResNet(block=ResidualBlock, num_block=[3, 4, 6, 3], num_classes=num_classes)
+        model = ResNet(size=34, num_classes=num_classes)
     
     if model_name == 'resnet50':
-        model = ResNet(block=BottleNeckResidualBlock, num_block=[3, 4, 6, 3], num_classes=num_classes)
+        model = ResNet(size=50, num_classes=num_classes)
     
     if model_name == 'UEGAN':
         model = UEGAN()
