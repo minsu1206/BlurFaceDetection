@@ -142,7 +142,7 @@ def train(cfg, args):
             loss.backward()
             optimizer.step()
 
-            break
+            # break
 
         print(f"Epoch #{epoch + 1} >>>> Training loss : {training_loss / len(train_dataloader):.6f}")
 
@@ -171,7 +171,7 @@ def train(cfg, args):
 
                 loss = compute_loss(loss_func, prediction, gt_reg, gt_cls)
                 validation_loss += loss.item()
-                break
+                # break
 
             print(f"(Val)Epoch #{epoch + 1} >>>> Validation loss : {validation_loss / len(val_dataloader):.6f}")
 
