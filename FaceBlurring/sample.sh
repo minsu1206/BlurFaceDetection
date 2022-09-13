@@ -7,5 +7,5 @@ python test.py --config base_regression --device cuda:2 --save checkpoint_sample
 python test.py --config edgenext_regression --device cuda:2 --save checkpoint_sample/edgenext_regression --resume checkpoint_sample/edgenext_regression/checkpoint_0.ckpt
 python test.py --config yolov5n_regression --device cuda:2 --save checkpoint_sample/yolov5n_regression --resume checkpoint_sample/yolov5n_regression/checkpoint_0.ckpt
 
-python recorder.py --checkpoints checkpoint_sample/base_regression checkpoint_sample/yolov5n_regression checkpoint_sample/edgenext_regression --save_path model_3_compare.png
+python recorder.py --checkpoints checkpoint_sample/base_regression checkpoint_sample/yolov5n_regression checkpoint_sample/edgenext_regression --save_path checkpoint_check/sample_compare.png
 
