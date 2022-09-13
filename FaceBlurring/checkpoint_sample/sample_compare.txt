@@ -1,0 +1,9 @@
+-----FIX METRIC-----
+sample $\theta$ : 0.0597
+yolov5n_regression $\theta$ : 0.0592
+edgenext_regression $\theta$ : 0.0607
+
+-----RANDOM METRIC -----
+sample $\theta$ : 0.1605
+yolov5n_regression $\theta$ : 0.1599
+edgenext_regression $\theta$ : 0.1624

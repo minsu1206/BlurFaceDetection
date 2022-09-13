@@ -22,6 +22,9 @@ COLOR_LIST = [
     'silver', 'gray', 'k'
 ]
 
+def mse(real, pred):
+    assert len(real) == len(pred)
+    return round(float(np.sum(np.square(real - pred)) / len(pred)), 4)
 
 def recorder(args):
 
@@ -56,7 +59,8 @@ def recorder(args):
     suffix = '$\\theta$'
     fix_plots = {'Real Fix ' + suffix: real_mean_fix}
     random_plots = {'Real Random '+ suffix: real_mean_random}
-
+    fix_metric = {}
+    random_metric = {}
 
     # (1) : Bring Model results 
     for checkpoint in args.checkpoints:
@@ -71,10 +75,12 @@ def recorder(args):
         with open(one_random_pkl, 'rb') as f:
             cos_mean_random = pickle.load(f)
         
-        fix_plots[exp_name + ' ' +suffix] = cos_mean_fix
-        random_plots[exp_name + ' ' +suffix] = cos_mean_random
-    
-    # (2) : Plot Model Results and Show Metric as Table
+        fix_plots[exp_name + ' ' + suffix] = cos_mean_fix
+        random_plots[exp_name + ' ' + suffix] = cos_mean_random
+        fix_metric[exp_name + ' ' + suffix] = mse(real_mean_fix, cos_mean_fix)
+        random_metric[exp_name + ' ' + suffix] = mse(real_mean_random, cos_mean_random) 
+
+    # (2) : Plot Model Results 
     plt.figure(figsize=(24, 7))
     plt.subplot(1, 2, 1)
     for i, (key, val) in enumerate(fix_plots.items()):
@@ -88,7 +94,25 @@ def recorder(args):
 
     plt.savefig(args.save_path)
     
+    # (3) : Save Metric as Table
+    txt_path = args.save_path.replace('.png', '.txt')
+    with open(txt_path, 'w') as f:
+        f.write('-----FIX METRIC-----')
+        f.write('\n')
+        for i, (key, val) in enumerate(fix_metric.items()):
+            f.write(key + ' : ' + str(val) + '\n')
+        
+        f.write('\n')
+        f.write('-----RANDOM METRIC -----')
+        f.write('\n')
+        for i, (key, val) in enumerate(random_metric.items()):
+            f.write(key + ' : ' + str(val) + '\n')
+    f.close()
 
+    with open(txt_path, 'r') as f:
+        file = f.read()
+        print(file)
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoints', nargs="+")
