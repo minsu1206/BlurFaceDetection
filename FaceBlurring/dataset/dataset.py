@@ -189,7 +189,7 @@ if __name__ == '__main__':
             print(i, dfdict['filename'][i], dfdict['cosine'][i])
     df = pd.DataFrame(dfdict)
     df.to_csv('../data/label_blur_defocus/label/label.csv')
-    '''
+
     
     ###############
     dfdict = pd.DataFrame.to_dict(pd.read_csv('../data/label_defocus/label/label.csv'))
@@ -223,7 +223,7 @@ if __name__ == '__main__':
     plt.hist(labels1, bins=80, color='black')
     plt.show()
     ###############
-
+    '''
 
     ''' Code for sub sample more blurry images
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -237,7 +237,7 @@ if __name__ == '__main__':
         blur_samples.append(blur)
 
     print(reblur_pair[10])
-    '''
+
 
 
     #########################################
@@ -254,7 +254,7 @@ if __name__ == '__main__':
     if answer == 'y':
         df = pd.DataFrame(new_dict)
         df.to_csv('../data/label_defocus/label/data_label.csv')
-    '''
+
     dfdict1 = pd.DataFrame.to_dict(pd.read_csv('../data/label_random/label/data_label.csv'))
     dfdict2 = pd.DataFrame.to_dict(pd.read_csv('../data/label_defocus/label/data_label.csv'))
     labels3 = []
@@ -269,9 +269,7 @@ if __name__ == '__main__':
     plt.hist(labels3, bins=80, color='black')
     plt.show()
     ###########################################    
-    '''
 
-    '''
     dfdict = pd.DataFrame.to_dict(pd.read_csv('../data/label_blur_defocus/label/data_label.csv'))
     labels2 = []
     for i in range(len(dfdict['filename'])):
