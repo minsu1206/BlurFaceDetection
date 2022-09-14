@@ -35,7 +35,7 @@ def blurring(img, d=None, angle=None):
         cv2.normalize(blurred, blurred, 0, 255, cv2.NORM_MINMAX)
         blurred = np.array(blurred, dtype=np.uint8)
 
-    return blurred, random_degree/100
+    return blurred
 ```
 ---
 # 2. Generate samples
@@ -58,7 +58,7 @@ for file in os.listdir(image_root):
     clean_img = cv2.imread(os.path.join(image_root, file))
     print(f"Creating blur images [{look_upto}/30]")
     for i in tqdm(range(101)):
-        blurred_img, _ = blurring(clean_img, d=i)
+        blurred_img = blurring(clean_img, d=i)
         cv2.imwrite(os.path.join(image_root, image_name, f'random_{i}.png'), blurred_img)
 
     if look_upto == 30:
@@ -80,7 +80,7 @@ for file in os.listdir(image_root):
     clean_img = cv2.imread(os.path.join(image_root, file))
     print(f"Creating blur images [{look_upto}/30]")
     for i in tqdm(range(101)):
-        blurred_img, _ = blurring(clean_img, d=i, angle=45)
+        blurred_img = blurring(clean_img, d=i, angle=45)
         cv2.imwrite(os.path.join(image_root, image_name, f'fix_{i}.png'), blurred_img)
 
     if look_upto == 30:
@@ -153,11 +153,11 @@ def cos_sim(emb1, emb2):
 
 ---
 # 4. Average distance and similarity on 30 samples
-$$ L_1(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \left| e_i - \epsilon_i^j \right| $$
+$$ L_1(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \parallel g(r_i)-g(b_i^j) \parallel_1 $$
 
-$$ L_2(j)^{avg} = \frac{1}{30} \sqrt{\sum_{i=0}^{29} \left( e_i-\epsilon_i^j \right)^2} $$
+$$ L_2(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \parallel g(r_i)-g(b_i^j) \parallel_2 $$
 
-$$ \text{Similarity}(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \left( \frac{|e_i \cdot \epsilon_i^j|}{ |e_i|\times |\epsilon_i^j|} \right) $$
+$$ \text{Similarity}(j)^{avg} = \frac{1}{30} \sum_{i=0}^{29} \left[ 1- \frac{g(r_i) \cdot g(b_i^j)}{ \parallel g(r_i)\parallel_2 \cdot \parallel g(b_i^j) \parallel_2} \right] $$
 
 for reference face embedding $e_i = g(r_i)$ from face recognition model $g(\cdot)$ inference on reference face image $r_i$.
 and blurred face embedding $\epsilon_i^j = g(b_i^j)$ from face recognition model inference on blurred face image $k_j * r_i$ with $j^{th}$ blur kernel $k_j$.
@@ -190,10 +190,10 @@ cos_mean /= look_upto
 ---
 # 5. Visualize results
 ## (1) Average distances and similarity for samples generated with random $\theta$.
-<p align="center"><img src='./results/distance test/random_L1L2COS.png', width="500">
+<p align="center"><img src='./results/graph_distance_random.png', width="500">
 
 ## (2) Average distances and similarity for samples generated with fixed $\theta$.
-<p align="center"><img src='./results/distance test/fix_L1L2COS.png', width="500">
+<p align="center"><img src='./results/graph_distance_fix.png', width="500">
 
 ---
 # 6. Additional test
@@ -209,14 +209,14 @@ $$ SSIM(x, y) = \left[ l(x, y) \right]^\alpha \cdot \left[ c(x, y) \right]^\beta
 
 $$ SSIM(x, y) = \frac{(2\mu_x \mu_y +C_1)(2 \sigma_{xy}+C_2)}{(\mu_x^2+\mu_y^2+C_1)(\sigma_x^2+\sigma_y^2+C_2)} $$
 
-<p align="center"><img src="./results/distance test/metric_compare.png", width="550">
+<p align="center"><img src="./results/metric_compare.png", width="550">
 
 As can be seen from the figure above, it can be seen that the image on the left looks clearer visually than the image on the right, but the results of PSNR and SSIM metric appear opposite to each other. However, if you extract the same sample through pretrained-FaceNet(https://github.com/timesler/facenet-pytorch) and utilize it to obtain cosine similarity,
 
-<p align="center"><img src="./results/distance test/compare.png", width="550">
+<p align="center"><img src="./results/compare.png", width="550">
 
 It can be seen that the image on the clean left is the same (1.00) as the original person, and the image on the right side with the blur shows a lower cosine similarity(0.88), reflecting the visual blur. This also shows good results in the tendency to angles, for example, if you look at the sample and the cosine similarity,
 
-<p align="center"><img src="./results/distance test/blur_random_cosine.png", width="550">
+<p align="center"><img src="./results/blur_random_cosine.png", width="550">
 
-In fact, the image on the right has more blurs on the degree ( $d$ ), but the image on the left is more blurred by the angle( $\theta$ ) of the kernel that produces motion blur. Even in this case, it can be seen that cosine simplicity well represents an image that looks more visually blurred.
+In fact, the image on the right has more blurs on the degree ($d$), but the image on the left is more blurred by the angle($\theta$) of the kernel that produces motion blur. Even in this case, it can be seen that cosine simplicity well represents an image that looks more visually blurred.
