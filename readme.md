@@ -130,7 +130,7 @@ FaceBlurring
 ### Download data
 
 - FFHQ
-<p align="center"><img src="figures/ffhq_example.png" alt="drawing" width="100%"/></p>
+<p align="center"><img src="figures/ffhq_example.png" alt="drawing" width="60%"/></p>
     - [https://github.com/NVlabs/ffhq-dataset](https://github.com/NVlabs/ffhq-dataset)
     - The FFHQ dataset consists of 70,000 high-quality PNG images at 1024×1024 resolution and contains considerable variation in terms of age, ethnicity and image background.
     - Download 1024×1024 images as png (89.1GB)
@@ -257,14 +257,13 @@ python data_distribution.py --path ../data/label_deblurGAN/label/data_label.csv
 ```
 
 The distribution of the data we provided is as follows. (The x-axis is the blur label, and the y-axis is the number of images. The graph is sequentially using DeblurGAN method, Defocus method, and both methods.) 
+  
+| DeblurGAN | Defocus | Both |
+|------------|-------------|-------------|
+| <p align="center"><img src="figures/data_label_deblurgan.png" alt="drawing" width="100%"/></p> | <p align="center"><img src="figures/data_label_defocus.png" alt="drawing" width="100%"/></p> |<p align="center"><img src="figures/data_label_random.png" alt="drawing" width="100%"/></p> |
 
-<p align="center"><img src="figures/data_label_deblurgan.png" alt="drawing" width="75%"/></p>
 
-<p align="center"><img src="figures/data_label_defocus.png" alt="drawing" width="75%"/></p>
-
-<p align="center"><img src="figures/data_label_random.png" alt="drawing" width="75%"/></p>
-
-210,000 samples were generated with random motion blur kernels according to deblurGAN, defocus methods. Extracted 100,000 samples among them, so that the overall dataset samples were evenly distributed. Look at the image below.
+About 210,000 image samples were generated with random kernel-based methods according to the DeblurGAN and Defocus methods. And we extracted 100,000 samples among them, so that the overall dataset samples were evenly distributed. Training and validation dataset were matched through random split applied with the same random seed in each experiment. The training/validation dataset distribution is as follows. 
 
 <p align="center">
 <img src="figures/distribution.png" alt="drawing" width="75%"/>
