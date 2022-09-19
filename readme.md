@@ -342,6 +342,7 @@ This figure shows that ResNet with simple structure predicts better than one wit
 We divide 0 ~ 1 into N (20, 40) classes. i-th Class (i=0~N-1) means GT blur degree is between i/N ~ (i+1)/N, so regression label can be changed into classification label.
 
 We train ResNet and EdgeNext_xx_small with cross entropy + MSE (CMSE) or crossentropy + probability based MSE (WeightMSE, WMSE). These figures show that solving this task as classification is also valid approach.
+
 ---
 
 </br>
