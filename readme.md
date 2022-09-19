@@ -1,11 +1,17 @@
-<p align="center"><a href="#">
+![header](https://capsule-render.vercel.app/api?type=wave&color=gradient&height=300&section=header&text=YAI x Alchera there 👋&fontSize=90)
+
+<!-- <p align="center"><a href="#">
     <img src="https://capsule-render.vercel.app/api?type=waving&color=0:F9D976,100:F39F86&height=250&section=header&text=YAI x Alchera &fontSize=40&animation=fadeIn&fontColor=FFFFFF&fontAlignY=40" alt="header" />
-</a></p>
+</a></p> -->
+
 
 <!-- <h4 align="center">Hi 👋</h4> -->
 
 <p align="center"; font-size=24px><b>This Project is done by YAI 10th, cooperating with Alchera </b></p>
 </br>
+---
+
+### Members
 <p align="left"; style="margin:0px 280px"> <b>
 </br> &nbsp; 👑 KIM MINSU, YAI 7th
 </br> &nbsp; 🚀 KIM HYUNJIN, YAI 8th
