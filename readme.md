@@ -12,7 +12,7 @@
 </br> &nbsp; 🎓 PARK JUNYOUNG, YAI 9th
 </br> &nbsp; 🚀 LEE SUMIN, YAI 9th
 </br> &nbsp; 🐯 JIN HYUNBIN, YAI 9th
-</br> &nbsp; 🚀 CHOI SUNGBUM, YAI 9th
+</br> &nbsp; 😀 CHOI SUNGBUM, YAI 9th
 </b></p> 
 
 <!-- YAI logo -->
@@ -251,14 +251,17 @@ python data_distribution.py --path ../data/label_deblurGAN/label/data_label.csv
 
 The distribution of the data we provided is as follows. (The x-axis is the blur label, and the y-axis is the number of images. The graph is sequentially using DeblurGAN method, Defocus method, and both methods.) 
 
-<img src="figures/data_label_deblurgan.png" alt="drawing" width="75%"/>
+<p align="center"><img src="figures/data_label_deblurgan.png" alt="drawing" width="75%"/></p>
 
-<img src="figures/data_label_defocus.png" alt="drawing" width="75%"/>
+<p align="center"><img src="figures/data_label_defocus.png" alt="drawing" width="75%"/></p>
 
-<img src="figures/data_label_random.png" alt="drawing" width="75%"/>
+<p align="center"><img src="figures/data_label_random.png" alt="drawing" width="75%"/></p>
 
+210,000 samples were generated with random motion blur kernels according to deblurGAN, defocus methods. Extracted 100,000 samples among them, so that the overall dataset samples were evenly distributed. Look at the image below.
 
-     ### 준영이형 → 실제 학습에 사용한 data distribution (논문에 있는 그림이랑 간단한 설명 추가)
+<p align="center">
+<img src="figures/distribution.png" alt="drawing" width="75%"/>
+</p>
 
 ---
 </br>
@@ -308,7 +311,7 @@ EX)
 
 ### Performance : Baseline & Lightweight models
 
-<img src="figures/untitled.png" alt="drawing" width="100%"/>
+<p align="center"><img src="figures/untitled.png" alt="drawing" width="100%"/></p>
 
 This figure shows that our designed model predicts motion blur well and their error is close to zero when compared to GT whether the blur angle is fixed or not. (Also whatever the backbone is!) Each model’s result is the mean of result about 30 people.
 
@@ -316,7 +319,7 @@ This figure shows that our designed model predicts motion blur well and their er
 
 ### Ablation Study (1) : ResNet18 vs ResNet18 with complex regressor
 
-<img src="figures/untitled 1.png" alt="drawing" width="100%"/>
+<p align="center"><img src="figures/untitled 1.png" alt="drawing" width="100%"/></p>
 
 This figure shows that ResNet with simple structure predicts better than one with complex structure. Furthermore, the stack of linear layers increases the inference speed and model size. Therefore, we don’t fix any regressor (fc layer) of all the models we used at this project.
 
@@ -324,8 +327,8 @@ This figure shows that ResNet with simple structure predicts better than one wit
 
 ### Ablation Study (2) : How about solving this problem as Classification?
 
-<img src="figures/untitled 2.png" alt="drawing" width="100%"/>
-<img src="figures/untitled 3.png" alt="drawing" width="100%"/>
+<p align="center"><img src="figures/untitled 2.png" alt="drawing" width="100%"/></p>
+<p align="center"><img src="figures/untitled 3.png" alt="drawing" width="100%"/></p>
 
 > (Upper) : ResNet trained by classfication </br>
 (Bottom) : EdgeNext_xx_samll trained by classification
