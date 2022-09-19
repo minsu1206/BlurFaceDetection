@@ -10,7 +10,7 @@
 
 <!-- <h4 align="center">Hi 👋</h4> -->
 
-<p align="center"; font-size=24px><b>This Project is done by YAI 10th, cooperating with Alchera </b></p>
+<p align="center"; font-size=24px><b>This project was carried out by YAI 10th, in cooperation with Alchera</b></p>
 </br>
 
 <p align="center">
