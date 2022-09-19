@@ -138,3 +138,7 @@ You can run dataset example 'after' generate blurred images.
    python dataset.py
 ```
 And do not forget to update 'text.txt' before run this command.
+
+## 4. Dataset distribution
+210,000 samples were generated with random motion blur kernels according to deblurGAN, defocus methods. Extracted 100,000 samples among them, so that the overall dataset samples were evenly distributed.
+
