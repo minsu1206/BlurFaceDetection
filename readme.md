@@ -38,12 +38,6 @@
  <img src="https://user-images.githubusercontent.com/68576384/174433041-d638ff66-d616-4083-abaa-3c8c73576085.jpg" width="400" height="270">
 </a></p -->
 
-</br>
-
-
-</br>
-
-
 </p>
 
 </br>
