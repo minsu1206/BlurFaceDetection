@@ -1,14 +1,26 @@
-![header](https://capsule-render.vercel.app/api?type=wave&color=gradient&height=300&section=header&text=YAI x Alchera there 👋&fontSize=90)
+![header](https://capsule-render.vercel.app/api?type=waving&color=0:F9D976,100:F39F86&height=250&section=header&text=YAI%20x%20Alchera&fontSize=45&animation=fadeIn&fontColor=FFFFFF&fontAlignY=40)
 
-<!-- <p align="center"><a href="#">
+
+<!-- 
+<p align="center"><a href="#">
     <img src="https://capsule-render.vercel.app/api?type=waving&color=0:F9D976,100:F39F86&height=250&section=header&text=YAI x Alchera &fontSize=40&animation=fadeIn&fontColor=FFFFFF&fontAlignY=40" alt="header" />
-</a></p> -->
+</a></p>
 
+ -->
 
 <!-- <h4 align="center">Hi 👋</h4> -->
 
 <p align="center"; font-size=24px><b>This Project is done by YAI 10th, cooperating with Alchera </b></p>
 </br>
+
+<p align="center">
+<a href="mailto:minsumunsu@gmail.com">
+    <img src="https://img.shields.io/badge/-GMAIL-D14836?style=flat-square&logo=gmail&logoColor=white" alt="Gmail"/>
+</a> 
+<a href="https://gabby-mouth-b6b.notion.site/x-YAI-Blurred-Face-Detection-cdad82a5d24c4d0b80ea3957e4296407">
+    <img src="https://img.shields.io/badge/-Notion-FFFFFF?style=flat-square&logo=notion&logoColor=black" alt="NOTION"/>
+</a> 
+
 ---
 
 ### Members
@@ -16,7 +28,7 @@
 </br> &nbsp; 👑 KIM MINSU, YAI 7th
 </br> &nbsp; 🚀 KIM HYUNJIN, YAI 8th
 </br> &nbsp; 🎓 PARK JUNYOUNG, YAI 9th
-</br> &nbsp; 🚀 LEE SUMIN, YAI 9th
+</br> &nbsp; 🌵 LEE SUMIN, YAI 9th
 </br> &nbsp; 🐯 JIN HYUNBIN, YAI 9th
 </br> &nbsp; 😀 CHOI SUNGBUM, YAI 9th
 </b></p> 
@@ -27,13 +39,7 @@
 </a></p -->
 
 </br>
-<p align="center">
-<a href="mailto:minsumunsu@gmail.com">
-    <img src="https://img.shields.io/badge/-GMAIL-D14836?style=flat-square&logo=gmail&logoColor=white" alt="Gmail"/>
-</a> 
-<a href="https://gabby-mouth-b6b.notion.site/x-YAI-Blurred-Face-Detection-cdad82a5d24c4d0b80ea3957e4296407">
-    <img src="https://img.shields.io/badge/-Notion-FFFFFF?style=flat-square&logo=notion&logoColor=black" alt="NOTION"/>
-</a> 
+
 
 </br>
 
