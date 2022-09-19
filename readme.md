@@ -260,7 +260,7 @@ The distribution of the data we provided is as follows. (The x-axis is the blur 
   
 | DeblurGAN | Defocus | Both |
 |------------|-------------|-------------|
-| <p align="center"><img src="figures/data_label_deblurgan.png" alt="drawing" width="100%"/></p> | <p align="center"><img src="figures/data_label_defocus.png" alt="drawing" width="100%"/></p> |<p align="center"><img src="figures/data_label_random.png" alt="drawing" width="100%"/></p> |
+| <p align="center"><img src="figures/data_label_deblurGAN.png" alt="drawing" width="100%"/></p> | <p align="center"><img src="figures/data_label_defocus.png" alt="drawing" width="100%"/></p> |<p align="center"><img src="figures/data_label_random.png" alt="drawing" width="100%"/></p> |
 
 
 About 210,000 image samples were generated with random kernel-based methods according to the DeblurGAN and Defocus methods. And we extracted 100,000 samples among them, so that the overall dataset samples were evenly distributed. Training and validation dataset were matched through random split applied with the same random seed in each experiment. The training/validation dataset distribution is as follows. 
