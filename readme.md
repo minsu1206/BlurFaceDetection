@@ -130,6 +130,7 @@ FaceBlurring
 ### Download data
 
 - FFHQ
+<p align="center"><img src="figures/ffhq_example.png" alt="drawing" width="100%"/></p>
     - [https://github.com/NVlabs/ffhq-dataset](https://github.com/NVlabs/ffhq-dataset)
     - The FFHQ dataset consists of 70,000 high-quality PNG images at 1024×1024 resolution and contains considerable variation in terms of age, ethnicity and image background.
     - Download 1024×1024 images as png (89.1GB)
@@ -344,10 +345,20 @@ We divide 0 ~ 1 into N (20, 40) classes. i-th Class (i=0~N-1) means GT blur degr
 We train ResNet and EdgeNext_xx_small with cross entropy + MSE (CMSE) or crossentropy + probability based MSE (WeightMSE, WMSE). These figures show that solving this task as classification is also valid approach.
 ---
 
-### Qualitative results
-
-
 </br>
+
+## Qualitative results(Regression model)
+
+### ResNet18
+<p align="center"><img src="figures/resnet_qual.png" alt="drawing" width="80%"/></p>
+
+### EdgeNext
+<p align="center"><img src="figures/edgenet_qual.png" alt="drawing" width="80%"/></p>
+</br>
+
+## Qualitative results(Video test)
+<p align="center"><img src="figures/video_test.png" alt="drawing" width="80%"/></p>
+Qualitative model evaluation on video test samples. (a) is ResNet18, (b) is EdgeNext, (c) is Yolov5n, (d) is SqueezeNetV1.1, (e) is MobileNetv2(0.5) and (f) is MobileNetv2(0.25), respectively. Results of resizing the detected face image by applying the detection model, SCRFD, and then use it as an input to each model.
 
 <p align="center"><a href="#">
     <img src="https://capsule-render.vercel.app/api?type=waving&color=0:F9D976,100:F39F86&height=150&section=footer" alt="header" />
