@@ -311,7 +311,7 @@ EX)
 
 ### Performance : Baseline & Lightweight models
 
-<p align="center"><img src="figures/untitled.png" alt="drawing" width="100%"/></p>
+<p align="center"><img src="figures/Untitled.png" alt="drawing" width="100%"/></p>
 
 This figure shows that our designed model predicts motion blur well and their error is close to zero when compared to GT whether the blur angle is fixed or not. (Also whatever the backbone is!) Each model’s result is the mean of result about 30 people.
 
@@ -319,7 +319,7 @@ This figure shows that our designed model predicts motion blur well and their er
 
 ### Ablation Study (1) : ResNet18 vs ResNet18 with complex regressor
 
-<p align="center"><img src="figures/untitled 1.png" alt="drawing" width="100%"/></p>
+<p align="center"><img src="figures/Untitled 1.png" alt="drawing" width="100%"/></p>
 
 This figure shows that ResNet with simple structure predicts better than one with complex structure. Furthermore, the stack of linear layers increases the inference speed and model size. Therefore, we don’t fix any regressor (fc layer) of all the models we used at this project.
 
@@ -327,13 +327,13 @@ This figure shows that ResNet with simple structure predicts better than one wit
 
 ### Ablation Study (2) : How about solving this problem as Classification?
 
-<p align="center"><img src="figures/untitled 2.png" alt="drawing" width="100%"/></p>
-<p align="center"><img src="figures/untitled 3.png" alt="drawing" width="100%"/></p>
+<p align="center"><img src="figures/Untitled 2.png" alt="drawing" width="100%"/></p>
+<p align="center"><img src="figures/Untitled 3.png" alt="drawing" width="100%"/></p>
 
 > (Upper) : ResNet trained by classfication </br>
 (Bottom) : EdgeNext_xx_samll trained by classification
 
-We divide 0~1 into N (20, 40) classes. i-th Class (i=0~N-1) means GT blur degree is between i/N ~ (i+1)/N, so regression label can be changed into classification label.
+We divide 0 ~ 1 into N (20, 40) classes. i-th Class (i=0~N-1) means GT blur degree is between i/N ~ (i+1)/N, so regression label can be changed into classification label.
 
 We train ResNet and EdgeNext_xx_small with cross entropy + MSE (CMSE) or crossentropy + probability based MSE (WeightMSE, WMSE). These figures show that solving this task as classification is also valid approach.
 
