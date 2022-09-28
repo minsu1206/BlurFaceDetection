@@ -30,7 +30,7 @@
 </br> &nbsp; 🎓 PARK JUNYOUNG, YAI 9th
 </br> &nbsp; 🌵 LEE SUMIN, YAI 9th
 </br> &nbsp; 🐯 JIN HYUNBIN, YAI 9th
-</br> &nbsp; 😀 CHOI SUNGBUM, YAI 9th
+</br> &nbsp; 😀 CHOI SUNGBEOM, YAI 9th
 </b></p> 
 
 <!-- YAI logo -->
