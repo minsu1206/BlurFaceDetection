@@ -279,17 +279,17 @@ About 210,000 image samples were generated with random kernel-based methods acco
 
 Basically, we provide a models such as resnet, and also provide light weight backbones which show a fast interference speed.
 
-| Model | Model Size </br> (.pt file) | Inference speed : </br> Average | Config |
-| --- | --- | --- | --- |
-| ResNet18 | 42.916 MB | 143.502 (ms) | resnet18_regression.yaml |
-| ResNet34 | 81.542 MB | 263.5752 (ms) | - |
-| EdgeNext_xx_small | 4.49 MB | 155.0043 (ms) | edgenext_regression.yaml |
-| YOLOv5n (custom backbone : x) | 4.106 MB | 132.2865 (ms) | yolov5n_regression.yaml |
-| YOLOv5n (custom backbone : xx) | 2.213 MB | 129.8896 (ms) | yolov5n_regression.yaml |
-| MobileNetV2_0.25 | 1.068 MB  | 111.6102 (ms) | mobilenetv2_regression.yaml |
-| MobileNetV2_0.5 | 2.815 MB | 123.4103 (ms) | mobilenetv2_regression.yaml |
-| EfficientNetLite0 | 13.137 MB | 185.1595 (ms) | - |
-| SqueezeNetV1.1 | 2.785 MB | 57.3412 (ms) | squeezenet_regression.yaml |
+| Model | Model Size </br> (.pt file) | Inference speed : </br> Average | Config | Pre-trained Weight |
+| --- | --- | --- | --- | --- |
+| ResNet18 | 42.916 MB | 143.502 (ms) | resnet18_regression.yaml | https://drive.google.com/file/d/17o8oqL-ZKcR87vIEDXwcvAIiqxrZZe2y/view?usp=sharing |
+| ResNet34 | 81.542 MB | 263.5752 (ms) | - | - |
+| EdgeNext_xx_small | 4.49 MB | 155.0043 (ms) | edgenext_regression.yaml | https://drive.google.com/file/d/1Mo2wIPXJuj0pYFPyMDtC2C39bdH1VBxm/view?usp=sharing |
+| YOLOv5n (custom backbone : x) | 4.106 MB | 132.2865 (ms) | yolov5n_regression.yaml | https://drive.google.com/file/d/1I-HfI5p_UC1Y39ipAjLgV1Gw9Sdqh594/view?usp=sharing |
+| YOLOv5n (custom backbone : xx) | 2.213 MB | 129.8896 (ms) | yolov5n_regression.yaml | - |
+| MobileNetV2_0.25 | 1.068 MB  | 111.6102 (ms) | mobilenetv2_regression.yaml | https://drive.google.com/file/d/1Nqb1mqy512Tpj2L-pQMmDVP4GC9h6VGP/view?usp=sharing |
+| MobileNetV2_0.5 | 2.815 MB | 123.4103 (ms) | mobilenetv2_regression.yaml | https://drive.google.com/file/d/1St2n0FX11_R9VrH032xACKXHoXOk3ibf/view?usp=sharing |
+| EfficientNetLite0 | 13.137 MB | 185.1595 (ms) | - | - |
+| SqueezeNetV1.1 | 2.785 MB | 57.3412 (ms) | squeezenet_regression.yaml | https://drive.google.com/file/d/1IjV-7Rj56jtiJ0o15rX1xfTzc2cdo7zm/view?usp=sharing |
 
 </br>
 
