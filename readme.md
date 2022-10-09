@@ -360,6 +360,25 @@ We train ResNet and EdgeNext_xx_small with cross entropy + MSE(CMSE) or crossent
 <p align="center"><img src="figures/video_test.png" alt="drawing" width="80%"/></p>
 Qualitative model evaluation on video test samples. (a) is ResNet18, (b) is EdgeNext, (c) is Yolov5n, (d) is SqueezeNetV1.1, (e) is MobileNetv2(0.5) and (f) is MobileNetv2(0.25), respectively. Results of resizing the detected face image by applying the detection model, SCRFD, and then use it as an input to each model.
 
+---
+
+</br>
+
+## Quickstart examples with trained model
+You can detect the blur of the video or image with trained model. First Download a video/image file to the "data" folder path that you want to detect a blur. 
+
+Below command detects a blur in the video and generates a result video. 
+
+```
+python demo.py --device cpu --pretrained_path {pretrained_model.pt} --mode video --file_path ./data/sample.mp4 --save_path ./data/result_sample.mp4
+```
+
+Below command detects a blur in the image and generates a result image. 
+
+```
+python demo.py --device cpu --pretrained_path {pretrained_model.pt} --mode image --file_path ./data/sample.png --save_path ./data/result_sample.png
+```
+
 <p align="center"><a href="#">
     <img src="https://capsule-render.vercel.app/api?type=waving&color=0:F9D976,100:F39F86&height=150&section=footer" alt="header" />
 </a></p>
