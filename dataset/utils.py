@@ -96,7 +96,7 @@ def crop_n_align(app, img, box=False):
         # 여러 개의 얼굴일 때도 각 얼굴을 모두 normalize 처리하도록 수정
         for face in faces:
             kpss = face['kps']
-            face_images += [norm_crop(img, kpss, arcface_src, image_size=224)]
+            face_images += [norm_crop(img, kpss, arcface_src, image_size=112)]
             if box:
                 bboxs += [face['bbox']]
 
