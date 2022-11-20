@@ -9,9 +9,11 @@ from insightface.app import FaceAnalysis
 from model_factory import model_build
 from dataset.utils import crop_n_align
 
+import pdb
+
 ##########################################################
-# WARNING !!!
-# Not completed... It will be updated [9/12] 
+# Updated
+# Multiplt face is available(11/20)
 ##########################################################
 
 def demo(cfg, args, mode):
@@ -30,8 +32,12 @@ def demo(cfg, args, mode):
     # only predict blur regression label -> num_classes = 1
     
     if '.ckpt' or '.pt' in args.pretrained_path:
-        model_state = torch.load(args.pretrained_path)
-        model = model.load_state_dict(model_state)
+        try:
+            model_state = torch.load(args.pretrained_path, map_location=args.device)
+            model = model.load_state_dict(model_state, map_location=args.device)
+
+        except:
+            model = torch.load(args.pretrained_path, map_location=args.device)
 
     device = args.device
     if 'cuda' in device and torch.cuda.is_available():
@@ -62,49 +68,57 @@ def demo(cfg, args, mode):
                 break
 
             pad = 0
-            find = False
-            
             while pad <= 200:
                 padded = np.pad(frame, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
-                face_image, find, faces = crop_n_align(app, padded, box=True)
-                if find:
+                face_image, boxes = crop_n_align(app, padded, box=True)
+                if len(face_image) > 0:
                     break
                 pad += 50
 
-            if find:
-                blur_label = f'{model(face_image):.2f}' # predict blur label
-            else:
-                blur_label = 'Face not found'
+            if len(face_image) > 0:
+                batch = torch.FloatTensor(face_image).permute(0, 3, 1, 2)
+                blur_labels = model(batch)
 
-            if len(faces) != 0:
-                bbox = faces[0]['bbox']
-                left_top = (int(bbox[0]-pad//2), int(bbox[1]-pad//2))
-                right_btm = (int(bbox[2]-pad//2), int(bbox[3]-pad//2))
-                red_color = (0, 0, 255)
-                thickness = 3
-                cv2.rectangle(frame, left_top, right_btm, red_color, thickness)
-
-            if blur_label == 'Face not found':
-                TextPosition = (int(width*0.38), int(height*0.9))
             else:
-                TextPosition = (int(width*0.48), int(height*0.9))
+                blur_labels = 'Face not found'
+
+            # Put text on the image
             font = cv2.FONT_HERSHEY_SIMPLEX
-            fontScale = 1
-            fontColor = (255,255,255)
-            thickness = 2
+            fontScale = height/1500
+            fontColor = (255, 255, 255)
+            thickness = 1
             lineType = 2
 
-            cv2.putText(frame, blur_label, 
-                TextPosition, 
-                font, 
-                fontScale,
-                fontColor,
-                thickness,
-                lineType)
-            
+            if blur_labels == 'Face not found':
+                TextPosition = (int(width * 0.4), int(height * 0.9))
+                cv2.putText(frame, blur_labels,
+                            TextPosition,
+                            font,
+                            fontScale,
+                            fontColor,
+                            thickness,
+                            lineType)
+
+            else:
+                for i, box in enumerate(boxes):
+                    left_top = (int(box[0] - pad // 2), int(box[1] - pad // 2))
+                    right_btm = (int(box[2] - pad // 2), int(box[3] - pad // 2))
+                    red_color = (0, 0, 255)
+                    thickness = 3
+                    cv2.rectangle(frame, left_top, right_btm, red_color, thickness)
+                    blur_label = f"{blur_labels[i].item():.2f}"
+                    TextPosition = (int(box[0] - pad), int(box[1]))
+
+                    cv2.putText(frame, blur_label,
+                                TextPosition,
+                                font,
+                                fontScale,
+                                fontColor,
+                                thickness,
+                                lineType)
+
             cv2.imshow('blur image', frame)
             out.write(frame)
-
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
@@ -124,45 +138,56 @@ def demo(cfg, args, mode):
         app.prepare(ctx_id=0, det_size=(640, 640))
 
         pad = 0
-        find = False
-
         while pad <= 200:
             padded = np.pad(frame, ((pad, pad), (pad, pad), (0, 0)), 'constant', constant_values=0)
-            face_image, find, faces = crop_n_align(app, padded, box=True)
-            if find:
+            face_image, boxes = crop_n_align(app, padded, box=True)
+            if len(face_image) > 0:
                 break
             pad += 50
 
-            if find:
-                blur_label = f'{model(face_image):.2f}'
-            else:
-                blur_label = 'Face not found'
-
-        if len(faces) != 0:
-            bbox = faces[0]['bbox']
-            left_top = (int(bbox[0]-pad//2), int(bbox[1]-pad//2))
-            right_btm = (int(bbox[2]-pad//2), int(bbox[3]-pad//2))
-            red_color = (0, 0, 255)
-            thickness = 3
-            cv2.rectangle(frame, left_top, right_btm, red_color, thickness)
-
-        if blur_label == 'Face not found':
-            TextPosition = (int(width*0.4), int(height*0.9))
+        if len(face_image) > 0:
+            batch = torch.FloatTensor(face_image).permute(0, 3, 1, 2)
+            blur_labels = model(batch)
         else:
-            TextPosition = (int(width*0.45), int(height*0.9))
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        fontScale              = 1
-        fontColor              = (255,255,255)
-        thickness              = 2
-        lineType               = 2
+            blur_labels = 'Face not found'
 
-        cv2.putText(frame,blur_label, 
-            TextPosition, 
-            font,
-            fontScale,
-            fontColor,
-            thickness,
-            lineType)
+        # Put text on the image
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        fontScale = height/1500
+        fontColor = (255, 255, 255)
+        thickness = 1
+        lineType = 1
+
+        if blur_labels == 'Face not found':
+            TextPosition = (int(width*0.4), int(height*0.9))
+            cv2.putText(frame, blur_labels,
+                        TextPosition,
+                        font,
+                        fontScale,
+                        fontColor,
+                        thickness,
+                        lineType)
+
+        else:
+            for i, box in enumerate(boxes):
+                left_top = (int(box[0]-pad//2), int(box[1]-pad//2))
+                right_btm = (int(box[2]-pad//2), int(box[3]-pad//2))
+                red_color = (0, 0, 255)
+                thickness = 3
+                cv2.rectangle(frame, left_top, right_btm, red_color, thickness)
+                blur_label = f"{blur_labels[i].item():.2f}"
+                TextPosition = (int(box[0]-pad), int(box[1]))
+
+                cv2.putText(frame, blur_label,
+                    TextPosition,
+                    font,
+                    fontScale,
+                    fontColor,
+                    thickness,
+                    lineType)
+
+
+        cv2.imwrite(args.save_path, frame)
         cv2.imshow('blur image', frame)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
@@ -170,12 +195,12 @@ def demo(cfg, args, mode):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='./config/baseline.yaml', help='Path for configuration file')
+    parser.add_argument('--config', type=str, default='./config/CONFIG_NAME.yaml', help='Path for configuration file')
     parser.add_argument('--device', type=str, default='cpu', help='Device for model inference. It can be "cpu" or "cuda" ')
-    parser.add_argument('--pretrained_path', type=str, default='', help='Path for pretrained model file')
+    parser.add_argument('--pretrained_path', type=str, default='PRETRAINED_NAME.pt', help='Path for pretrained model file')
     parser.add_argument('--mode', type=str, default='video', help='Inference mode. it can be "video" or "image"')
-    parser.add_argument('--file_path', type=str, default='./data/me4.mp4', help='Path for the video or image you want to infer')
-    parser.add_argument('--save_path', type=str, default='./data/blur_sample.mp4', help='Path for saved the inference video')
+    parser.add_argument('--file_path', type=str, default='SAMPLE_NAME.mp4', help='Path for the video or image you want to infer')
+    parser.add_argument('--save_path', type=str, default='SAVE_PATH_NAME.mp4', help='Path for saved the inference video')
     args = parser.parse_args()
 
     with open(args.config, 'r') as f:
