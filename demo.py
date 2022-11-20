@@ -85,7 +85,7 @@ def demo(cfg, args, mode):
 
             # Put text on the image
             font = cv2.FONT_HERSHEY_SIMPLEX
-            fontScale = height/1500
+            fontScale = 1
             fontColor = (255, 255, 255)
             thickness = 1
             lineType = 2
@@ -155,7 +155,7 @@ def demo(cfg, args, mode):
 
         # Put text on the image
         font = cv2.FONT_HERSHEY_SIMPLEX
-        fontScale = height/1500
+        fontScale = 1
         fontColor = (255, 255, 255)
         thickness = 1
         lineType = 1
