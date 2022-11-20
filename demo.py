@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from insightface.app import FaceAnalysis
 
-from models.model_factory import model_build
+from model_factory import model_build
 from dataset.utils import crop_n_align
 
 ##########################################################
