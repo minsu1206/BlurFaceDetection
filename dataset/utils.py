@@ -90,16 +90,17 @@ def crop_n_align(app, img, box=False):
     arcface_src = np.expand_dims(arcface_src, axis=0)
     faces = app.get(img)
     find = (len(faces) != 0)
+    face_images = []
+    bboxs = []
     if find:
-        # TODO
-        # FIXME : face 가 여러개일때 처리해야 함
-        kpss = faces[0]['kps']
-        image = norm_crop(img, kpss, arcface_src, image_size=1024)
-
-    else:
-        image = img
+        # 여러 개의 얼굴일 때도 각 얼굴을 모두 normalize 처리하도록 수정
+        for face in faces:
+            kpss = face['kps']
+            face_images += [norm_crop(img, kpss, arcface_src, image_size=224)]
+            if box:
+                bboxs += [face['bbox']]
 
     if box:
-        return image, find, faces
+        return face_images, bboxs
     else:
-        return image, find
+        return face_images
