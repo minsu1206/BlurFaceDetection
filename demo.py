@@ -42,7 +42,7 @@ def demo(cfg, args, mode):
     device = args.device
     if 'cuda' in device and torch.cuda.is_available():
         model = model.to(device)
-    
+    model.eval()
     ##############################
     #       MODE : VIDEO         #
     ##############################
@@ -76,8 +76,9 @@ def demo(cfg, args, mode):
                 pad += 50
 
             if len(face_image) > 0:
-                batch = torch.FloatTensor(face_image).permute(0, 3, 1, 2)
-                blur_labels = model(batch)
+                batch = torch.FloatTensor(np.array(face_image)/255).permute(0, 3, 1, 2)
+                with torch.no_grad():
+                    blur_labels = model(batch)
 
             else:
                 blur_labels = 'Face not found'
@@ -146,8 +147,9 @@ def demo(cfg, args, mode):
             pad += 50
 
         if len(face_image) > 0:
-            batch = torch.FloatTensor(face_image).permute(0, 3, 1, 2)
-            blur_labels = model(batch)
+            batch = torch.FloatTensor(np.array(face_image)/255).permute(0, 3, 1, 2)
+            with torch.no_grad():
+                blur_labels = model(batch)
         else:
             blur_labels = 'Face not found'
 
