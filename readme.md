@@ -379,6 +379,12 @@ Below command detects a blur in the image and generates a result image.
 python demo.py --device cpu --pretrained_path {pretrained_model.pt} --mode image --file_path ./data/sample.png --save_path ./data/result_sample.png
 ```
 
+## Caution!!
+Be careful you have to match following image specification(for facial cropped image) in test/inference with pre-trained model.
+- model.eval() and torch.no_grad()
+- Image spatial dimension should be $112 \times 112$
+- Image value should be normalized to $0 \sim 1$, not $0 \sim 255$
+
 <p align="center"><a href="#">
     <img src="https://capsule-render.vercel.app/api?type=waving&color=0:F9D976,100:F39F86&height=150&section=footer" alt="header" />
 </a></p>
