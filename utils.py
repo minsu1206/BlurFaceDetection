@@ -122,7 +122,7 @@ def build_scheduler(cfg, optimizer):
     if sch_name != None:
         return scheduler
     else:
-        raise NotImplementedError(f"{optim_name} is not implemented yet.")
+        raise NotImplementedError(f"{sch_name} is not implemented yet.")
 
 
 ##########################################################
