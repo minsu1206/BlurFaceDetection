@@ -112,7 +112,7 @@ def train(cfg, args):
         print("RESUME")
         checkpoint = torch.load(args.resume)
         model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer = optimizer.load_state_dict(checkpoint['optimizers_state_dict'])
+        optimizer = optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         scheduler = scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         start = checkpoint['epoch']
 
